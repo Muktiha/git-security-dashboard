@@ -1,4 +1,30 @@
 import { spawn } from 'child_process';
+import fs from 'fs';
+import path from 'path';
+
+/**
+ * Resolves the path to the Trivy executable.
+ */
+export const getTrivyCommand = () => {
+  if (process.env.TRIVY_PATH && fs.existsSync(process.env.TRIVY_PATH)) {
+    return process.env.TRIVY_PATH;
+  }
+  if (process.platform === 'win32') {
+    const localAppData = process.env.LOCALAPPDATA || path.join(process.env.USERPROFILE || '', 'AppData', 'Local');
+    const wingetPath = path.join(
+      localAppData,
+      'Microsoft',
+      'WinGet',
+      'Packages',
+      'AquaSecurity.Trivy_Microsoft.Winget.Source_8wekyb3d8bbwe',
+      'trivy.exe'
+    );
+    if (fs.existsSync(wingetPath)) {
+      return wingetPath;
+    }
+  }
+  return 'trivy';
+};
 
 /**
  * Runs Trivy filesystem vulnerability scanning.
@@ -12,6 +38,7 @@ export const runTrivy = (sourcePath) => {
       return reject(new Error('A valid source path is required.'));
     }
 
+    const executable = getTrivyCommand();
     const args = [
       'fs',
       '--format',
@@ -21,7 +48,7 @@ export const runTrivy = (sourcePath) => {
       sourcePath,
     ];
 
-    const trivy = spawn('trivy', args, {
+    const trivy = spawn(executable, args, {
       shell: false,
       windowsHide: true,
     });

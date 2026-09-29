@@ -12,4 +12,18 @@ const api = axios.create({
   timeout: 15000,
 });
 
+// Automatically inject JWT Bearer token from localStorage for authenticated requests
+api.interceptors.request.use(
+  (config) => {
+    const token = localStorage.getItem('token');
+    if (token) {
+      config.headers.Authorization = `Bearer ${token}`;
+    }
+    return config;
+  },
+  (error) => {
+    return Promise.reject(error);
+  }
+);
+
 export default api;

@@ -1,4 +1,30 @@
 import { spawn } from 'child_process';
+import fs from 'fs';
+import path from 'path';
+
+/**
+ * Resolves the path to the Gitleaks executable.
+ */
+export const getGitleaksCommand = () => {
+  if (process.env.GITLEAKS_PATH && fs.existsSync(process.env.GITLEAKS_PATH)) {
+    return process.env.GITLEAKS_PATH;
+  }
+  if (process.platform === 'win32') {
+    const localAppData = process.env.LOCALAPPDATA || path.join(process.env.USERPROFILE || '', 'AppData', 'Local');
+    const wingetPath = path.join(
+      localAppData,
+      'Microsoft',
+      'WinGet',
+      'Packages',
+      'Gitleaks.Gitleaks_Microsoft.Winget.Source_8wekyb3d8bbwe',
+      'gitleaks.exe'
+    );
+    if (fs.existsSync(wingetPath)) {
+      return wingetPath;
+    }
+  }
+  return 'gitleaks';
+};
 
 /**
  * Runs Gitleaks against a local repository/folder.
@@ -12,6 +38,7 @@ export const runGitleaks = (sourcePath) => {
       return reject(new Error('A valid source path is required.'));
     }
 
+    const executable = getGitleaksCommand();
     const args = [
       'detect',
       '--source',
@@ -23,7 +50,7 @@ export const runGitleaks = (sourcePath) => {
       '--no-git',
     ];
 
-    const gitleaks = spawn('gitleaks', args, {
+    const gitleaks = spawn(executable, args, {
       shell: false,
       windowsHide: true,
     });
