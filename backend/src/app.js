@@ -4,6 +4,7 @@ import healthRoutes from './routes/health.routes.js';
 import authRoutes from './routes/auth.routes.js';
 import repositoryRoutes from './routes/repository.routes.js';
 import scanRoutes from './routes/scan.routes.js';
+import findingRoutes from './routes/finding.routes.js';
 
 const app = express();
 
@@ -22,6 +23,7 @@ app.use('/api', healthRoutes);
 app.use('/api/auth', authRoutes);
 app.use('/api/repositories', repositoryRoutes);
 app.use('/api/scans', scanRoutes);
+app.use('/api/findings', findingRoutes);
 
 // 404 Route Handler
 app.use((req, res, next) => {

@@ -1,11 +1,12 @@
 import React from 'react';
-import { NavLink } from 'react-router-dom';
+import { NavLink, useNavigate } from 'react-router-dom';
 import { 
   LayoutDashboard, 
   GitBranch, 
   ShieldAlert, 
   LogIn, 
-  UserPlus 
+  UserPlus,
+  LogOut 
 } from 'lucide-react';
 
 const navItems = [
@@ -14,12 +15,16 @@ const navItems = [
   { name: 'Security Findings', path: '/findings', icon: ShieldAlert },
 ];
 
-const authItems = [
-  { name: 'Sign In', path: '/login', icon: LogIn },
-  { name: 'Register', path: '/register', icon: UserPlus },
-];
-
 export default function Sidebar() {
+  const navigate = useNavigate();
+  const token = localStorage.getItem('token');
+
+  const handleLogout = () => {
+    localStorage.removeItem('token');
+    localStorage.removeItem('user');
+    navigate('/login');
+  };
+
   const getLinkStyle = ({ isActive }) => ({
     display: 'flex',
     alignItems: 'center',
@@ -86,15 +91,49 @@ export default function Sidebar() {
           Access Control
         </div>
         <nav style={{ display: 'flex', flexDirection: 'column', gap: '0.35rem' }}>
-          {authItems.map((item) => {
-            const Icon = item.icon;
-            return (
-              <NavLink key={item.path} to={item.path} style={getLinkStyle}>
-                <Icon size={18} />
-                <span>{item.name}</span>
+          {token ? (
+            <button
+              onClick={handleLogout}
+              style={{
+                display: 'flex',
+                alignItems: 'center',
+                gap: '0.75rem',
+                padding: '0.65rem 0.85rem',
+                borderRadius: '8px',
+                fontSize: '0.875rem',
+                fontWeight: 500,
+                color: 'var(--severity-critical)',
+                backgroundColor: 'transparent',
+                border: '1px solid transparent',
+                cursor: 'pointer',
+                textAlign: 'left',
+                width: '100%',
+                transition: 'all 0.15s ease',
+              }}
+              onMouseEnter={(e) => {
+                e.currentTarget.style.backgroundColor = 'rgba(239, 68, 68, 0.1)';
+                e.currentTarget.style.borderColor = 'rgba(239, 68, 68, 0.3)';
+              }}
+              onMouseLeave={(e) => {
+                e.currentTarget.style.backgroundColor = 'transparent';
+                e.currentTarget.style.borderColor = 'transparent';
+              }}
+            >
+              <LogOut size={18} />
+              <span>Sign Out</span>
+            </button>
+          ) : (
+            <>
+              <NavLink to="/login" style={getLinkStyle}>
+                <LogIn size={18} />
+                <span>Sign In</span>
               </NavLink>
-            );
-          })}
+              <NavLink to="/register" style={getLinkStyle}>
+                <UserPlus size={18} />
+                <span>Register</span>
+              </NavLink>
+            </>
+          )}
         </nav>
       </div>
     </aside>

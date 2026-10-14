@@ -36,6 +36,7 @@ export default function Repositories() {
   // Scanning State
   const [scanningMap, setScanningMap] = useState({});
   const [scanNotification, setScanNotification] = useState(null);
+  const [repoErrors, setRepoErrors] = useState({});
 
   const token = localStorage.getItem('token');
 
@@ -46,9 +47,14 @@ export default function Repositories() {
 
     setScanningMap((prev) => ({ ...prev, [repoId]: true }));
     setScanNotification(null);
+    setRepoErrors((prev) => {
+      const next = { ...prev };
+      delete next[repoId];
+      return next;
+    });
 
     try {
-      const response = await api.post(`/scans/${repoId}`);
+      const response = await api.post(`/scans/${repoId}`, {}, { timeout: 120000 });
 
       if (response.data && response.data.success) {
         const updatedRepo = response.data.repository;
@@ -68,16 +74,24 @@ export default function Repositories() {
           message: `Scan completed successfully for "${repo.name}"! ${findingsCount} finding(s) detected.`,
         });
       } else {
+        const errMsg = response.data?.message || `Failed to complete scan for "${repo.name}".`;
+        setRepoErrors((prev) => ({ ...prev, [repoId]: errMsg }));
         setScanNotification({
           type: 'error',
-          message: response.data?.message || `Failed to complete scan for "${repo.name}".`,
+          message: errMsg,
         });
       }
     } catch (err) {
-      const errorMsg =
-        err.response?.data?.message ||
-        err.message ||
-        `Failed to run security scan for "${repo.name}".`;
+      let errorMsg = `Failed to run security scan for "${repo.name}".`;
+      if (err.code === 'ECONNABORTED') {
+        errorMsg = `Scan request timed out after 2 minutes for "${repo.name}".`;
+      } else if (err.response?.data?.message) {
+        errorMsg = err.response.data.message;
+      } else if (err.message) {
+        errorMsg = err.message;
+      }
+
+      setRepoErrors((prev) => ({ ...prev, [repoId]: errorMsg }));
       setScanNotification({
         type: 'error',
         message: errorMsg,
@@ -184,29 +198,67 @@ export default function Repositories() {
           </p>
         </div>
 
-        <button
-          onClick={() => {
-            setModalError('');
-            setIsModalOpen(true);
-          }}
-          style={{
-            display: 'flex',
-            alignItems: 'center',
-            gap: '0.5rem',
-            padding: '0.65rem 1.25rem',
-            backgroundColor: 'var(--accent-cyan)',
-            color: '#ffffff',
-            borderRadius: '8px',
-            fontWeight: 600,
-            fontSize: '0.875rem',
-            transition: 'opacity 0.15s ease',
-          }}
-          onMouseEnter={(e) => (e.currentTarget.style.opacity = '0.9')}
-          onMouseLeave={(e) => (e.currentTarget.style.opacity = '1')}
-        >
-          <Plus size={16} />
-          <span>Add Repository</span>
-        </button>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
+          <button
+            onClick={fetchRepositories}
+            disabled={loading}
+            title="Reload repository records from database"
+            style={{
+              display: 'flex',
+              alignItems: 'center',
+              gap: '0.5rem',
+              padding: '0.65rem 1rem',
+              backgroundColor: 'var(--bg-card)',
+              border: '1px solid var(--border-color)',
+              color: 'var(--text-secondary)',
+              borderRadius: '8px',
+              fontWeight: 600,
+              fontSize: '0.875rem',
+              cursor: loading ? 'not-allowed' : 'pointer',
+              transition: 'all 0.15s ease',
+            }}
+            onMouseEnter={(e) => {
+              if (!loading) {
+                e.currentTarget.style.color = 'var(--text-primary)';
+                e.currentTarget.style.borderColor = 'var(--accent-cyan)';
+              }
+            }}
+            onMouseLeave={(e) => {
+              if (!loading) {
+                e.currentTarget.style.color = 'var(--text-secondary)';
+                e.currentTarget.style.borderColor = 'var(--border-color)';
+              }
+            }}
+          >
+            <RefreshCw size={15} style={loading ? { animation: 'spin 1s linear infinite' } : {}} />
+            <span>Refresh</span>
+          </button>
+
+          <button
+            onClick={() => {
+              setModalError('');
+              setIsModalOpen(true);
+            }}
+            style={{
+              display: 'flex',
+              alignItems: 'center',
+              gap: '0.5rem',
+              padding: '0.65rem 1.25rem',
+              backgroundColor: 'var(--accent-cyan)',
+              color: '#ffffff',
+              borderRadius: '8px',
+              fontWeight: 600,
+              fontSize: '0.875rem',
+              cursor: 'pointer',
+              transition: 'opacity 0.15s ease',
+            }}
+            onMouseEnter={(e) => (e.currentTarget.style.opacity = '0.9')}
+            onMouseLeave={(e) => (e.currentTarget.style.opacity = '1')}
+          >
+            <Plus size={16} />
+            <span>Add Repository</span>
+          </button>
+        </div>
       </div>
 
       {/* Authentication Notice if not logged in */}
@@ -470,6 +522,24 @@ export default function Repositories() {
                         <RefreshCw size={12} style={{ animation: 'spin 1s linear infinite' }} />
                         Scanning...
                       </span>
+                    ) : repoErrors[repo._id || repo.id] ? (
+                      <span 
+                        title={repoErrors[repo._id || repo.id]}
+                        style={{
+                          display: 'inline-flex',
+                          alignItems: 'center',
+                          gap: '0.35rem',
+                          color: 'var(--severity-critical)',
+                          backgroundColor: 'rgba(239, 68, 68, 0.1)',
+                          border: '1px solid rgba(239, 68, 68, 0.3)',
+                          padding: '0.2rem 0.6rem',
+                          borderRadius: '4px',
+                          fontSize: '0.75rem',
+                          fontWeight: 600,
+                        }}>
+                        <AlertCircle size={13} />
+                        Scan Failed
+                      </span>
                     ) : repo.lastScannedAt ? (
                       <span style={{
                         display: 'inline-flex',
@@ -507,42 +577,59 @@ export default function Repositories() {
                   </td>
                   <td style={{ padding: '1rem 1.25rem', textAlign: 'right' }}>
                     {(() => {
-                      const isScanning = Boolean(scanningMap[repo._id || repo.id]);
+                      const repoId = repo._id || repo.id;
+                      const isScanning = Boolean(scanningMap[repoId]);
+                      const hasFailed = Boolean(repoErrors[repoId]);
+
                       return (
                         <button
                           onClick={() => handleTriggerScan(repo)}
                           disabled={isScanning}
-                          title={isScanning ? 'Scan in progress' : 'Trigger security scan'}
+                          title={isScanning ? 'Scan in progress' : hasFailed ? 'Retry failed scan' : 'Trigger security scan'}
                           style={{
                             display: 'inline-flex',
                             alignItems: 'center',
                             gap: '0.35rem',
                             padding: '0.35rem 0.75rem',
                             borderRadius: '6px',
-                            backgroundColor: isScanning ? 'rgba(6, 182, 212, 0.15)' : 'var(--bg-secondary)',
-                            border: `1px solid ${isScanning ? 'var(--accent-cyan)' : 'var(--border-color)'}`,
-                            color: isScanning ? 'var(--accent-cyan)' : 'var(--text-secondary)',
+                            backgroundColor: isScanning 
+                              ? 'rgba(6, 182, 212, 0.15)' 
+                              : hasFailed 
+                              ? 'rgba(239, 68, 68, 0.15)' 
+                              : 'var(--bg-secondary)',
+                            border: `1px solid ${
+                              isScanning 
+                                ? 'var(--accent-cyan)' 
+                                : hasFailed 
+                                ? 'rgba(239, 68, 68, 0.4)' 
+                                : 'var(--border-color)'
+                            }`,
+                            color: isScanning 
+                              ? 'var(--accent-cyan)' 
+                              : hasFailed 
+                              ? 'var(--severity-critical)' 
+                              : 'var(--text-secondary)',
                             fontSize: '0.75rem',
-                            fontWeight: 500,
+                            fontWeight: 600,
                             cursor: isScanning ? 'not-allowed' : 'pointer',
                             opacity: isScanning ? 0.8 : 1,
                             transition: 'all 0.15s ease',
                           }}
                           onMouseEnter={(e) => {
                             if (!isScanning) {
-                              e.currentTarget.style.color = 'var(--accent-cyan)';
-                              e.currentTarget.style.borderColor = 'var(--accent-cyan)';
+                              e.currentTarget.style.color = hasFailed ? 'var(--severity-critical)' : 'var(--accent-cyan)';
+                              e.currentTarget.style.borderColor = hasFailed ? 'var(--severity-critical)' : 'var(--accent-cyan)';
                             }
                           }}
                           onMouseLeave={(e) => {
                             if (!isScanning) {
-                              e.currentTarget.style.color = 'var(--text-secondary)';
-                              e.currentTarget.style.borderColor = 'var(--border-color)';
+                              e.currentTarget.style.color = hasFailed ? 'var(--severity-critical)' : 'var(--text-secondary)';
+                              e.currentTarget.style.borderColor = hasFailed ? 'rgba(239, 68, 68, 0.4)' : 'var(--border-color)';
                             }
                           }}
                         >
                           <RefreshCw size={12} style={isScanning ? { animation: 'spin 1s linear infinite' } : {}} />
-                          <span>{isScanning ? 'Scanning...' : 'Trigger Scan'}</span>
+                          <span>{isScanning ? 'Scanning...' : hasFailed ? 'Retry Scan' : repo.lastScannedAt ? 'Rescan' : 'Trigger Scan'}</span>
                         </button>
                       );
                     })()}

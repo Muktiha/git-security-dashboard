@@ -30,12 +30,13 @@ export const getGitleaksCommand = () => {
  * Runs Gitleaks against a local repository/folder.
  *
  * @param {string} sourcePath - Absolute path to the repository/folder.
+ * @param {number} [timeoutMs=60000] - Execution timeout in milliseconds.
  * @returns {Promise<object[]>} Parsed Gitleaks findings.
  */
-export const runGitleaks = (sourcePath) => {
+export const runGitleaks = (sourcePath, timeoutMs = 60000) => {
   return new Promise((resolve, reject) => {
     if (!sourcePath || typeof sourcePath !== 'string') {
-      return reject(new Error('A valid source path is required.'));
+      return reject(new Error('A valid sourcePath is required.'));
     }
 
     const executable = getGitleaksCommand();
@@ -50,10 +51,24 @@ export const runGitleaks = (sourcePath) => {
       '--no-git',
     ];
 
+    let settled = false;
     const gitleaks = spawn(executable, args, {
       shell: false,
       windowsHide: true,
+      stdio: ['ignore', 'pipe', 'pipe'],
     });
+
+    const timer = setTimeout(() => {
+      if (!settled) {
+        settled = true;
+        try {
+          gitleaks.kill('SIGKILL');
+        } catch {
+          // Ignore kill error
+        }
+        reject(new Error(`Gitleaks scan timed out after ${timeoutMs / 1000} seconds.`));
+      }
+    }, timeoutMs);
 
     let stdout = '';
     let stderr = '';
@@ -67,19 +82,21 @@ export const runGitleaks = (sourcePath) => {
     });
 
     gitleaks.on('error', (error) => {
-      reject(
-        new Error(`Failed to start Gitleaks: ${error.message}`)
-      );
+      if (settled) return;
+      settled = true;
+      clearTimeout(timer);
+      reject(new Error(`Failed to start Gitleaks: ${error.message}`));
     });
 
     gitleaks.on('close', (code) => {
-      // Gitleaks can return a non-zero exit code when leaks are found.
-      // That is a scan result, not necessarily an execution failure.
+      if (settled) return;
+      settled = true;
+      clearTimeout(timer);
+
+      // Gitleaks returns 0 (no leaks) or 1 (leaks detected)
       if (code !== 0 && code !== 1) {
         return reject(
-          new Error(
-            `Gitleaks execution failed with code ${code}: ${stderr.trim()}`
-          )
+          new Error(`Gitleaks execution failed with code ${code}: ${stderr.trim() || 'Unknown scanner error'}`)
         );
       }
 
@@ -91,11 +108,7 @@ export const runGitleaks = (sourcePath) => {
         const findings = JSON.parse(stdout);
         resolve(Array.isArray(findings) ? findings : []);
       } catch (error) {
-        reject(
-          new Error(
-            `Unable to parse Gitleaks output: ${error.message}`
-          )
-        );
+        reject(new Error(`Unable to parse Gitleaks output: ${error.message}`));
       }
     });
   });

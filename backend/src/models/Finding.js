@@ -60,6 +60,11 @@ const findingSchema = new mongoose.Schema(
       type: String,
       default: '',
     },
+
+    remediation: {
+      type: String,
+      default: '',
+    },
   },
   {
     timestamps: true,

@@ -15,12 +15,13 @@ export const connectDB = async () => {
 
   try {
     // Configure Node.js DNS resolver to use 8.8.8.8 before connecting to resolve MongoDB SRV records
-    dns.setServers(['8.8.8.8']);
+    dns.setServers(['8.8.8.8', '8.8.4.4']);
 
     const conn = await mongoose.connect(mongoUri, {
+      dbName: 'test',
       serverSelectionTimeoutMS: 10000,
     });
-    console.log(`[Database] MongoDB Connected: ${conn.connection.host}`);
+    console.log(`[Database] MongoDB Connected: ${conn.connection.host} | Database: ${conn.connection.name}`);
     return conn;
   } catch (error) {
     const rootCause = error.errorResponse?.errmsg || error.message;

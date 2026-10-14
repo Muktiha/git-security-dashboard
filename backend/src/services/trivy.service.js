@@ -30,9 +30,10 @@ export const getTrivyCommand = () => {
  * Runs Trivy filesystem vulnerability scanning.
  *
  * @param {string} sourcePath - Absolute path to the repository/folder.
+ * @param {number} [timeoutMs=90000] - Execution timeout in milliseconds.
  * @returns {Promise<object>} Parsed Trivy result.
  */
-export const runTrivy = (sourcePath) => {
+export const runTrivy = (sourcePath, timeoutMs = 90000) => {
   return new Promise((resolve, reject) => {
     if (!sourcePath || typeof sourcePath !== 'string') {
       return reject(new Error('A valid source path is required.'));
@@ -48,10 +49,24 @@ export const runTrivy = (sourcePath) => {
       sourcePath,
     ];
 
+    let settled = false;
     const trivy = spawn(executable, args, {
       shell: false,
       windowsHide: true,
+      stdio: ['ignore', 'pipe', 'pipe'],
     });
+
+    const timer = setTimeout(() => {
+      if (!settled) {
+        settled = true;
+        try {
+          trivy.kill('SIGKILL');
+        } catch {
+          // Ignore kill error
+        }
+        reject(new Error(`Trivy scan timed out after ${timeoutMs / 1000} seconds.`));
+      }
+    }, timeoutMs);
 
     let stdout = '';
     let stderr = '';
@@ -65,17 +80,20 @@ export const runTrivy = (sourcePath) => {
     });
 
     trivy.on('error', (error) => {
-      reject(
-        new Error(`Failed to start Trivy: ${error.message}`)
-      );
+      if (settled) return;
+      settled = true;
+      clearTimeout(timer);
+      reject(new Error(`Failed to start Trivy: ${error.message}`));
     });
 
     trivy.on('close', (code) => {
+      if (settled) return;
+      settled = true;
+      clearTimeout(timer);
+
       if (code !== 0) {
         return reject(
-          new Error(
-            `Trivy execution failed with code ${code}: ${stderr.trim()}`
-          )
+          new Error(`Trivy execution failed with code ${code}: ${stderr.trim() || 'Unknown scanner error'}`)
         );
       }
 
@@ -87,11 +105,7 @@ export const runTrivy = (sourcePath) => {
         const result = JSON.parse(stdout);
         resolve(result);
       } catch (error) {
-        reject(
-          new Error(
-            `Unable to parse Trivy output: ${error.message}`
-          )
-        );
+        reject(new Error(`Unable to parse Trivy output: ${error.message}`));
       }
     });
   });
