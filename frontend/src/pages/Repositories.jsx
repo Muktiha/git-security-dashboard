@@ -207,26 +207,27 @@ export default function Repositories() {
               display: 'flex',
               alignItems: 'center',
               gap: '0.5rem',
-              padding: '0.65rem 1rem',
-              backgroundColor: 'var(--bg-card)',
+              padding: '0.65rem 1.15rem',
+              backgroundColor: '#ffffff',
               border: '1px solid var(--border-color)',
-              color: 'var(--text-secondary)',
-              borderRadius: '8px',
+              color: 'var(--text-primary)',
+              borderRadius: '10px',
               fontWeight: 600,
-              fontSize: '0.875rem',
+              fontSize: '0.85rem',
               cursor: loading ? 'not-allowed' : 'pointer',
-              transition: 'all 0.15s ease',
+              boxShadow: '0 1px 3px rgba(0, 0, 0, 0.04)',
+              transition: 'all 0.2s cubic-bezier(0.16, 1, 0.3, 1)',
             }}
             onMouseEnter={(e) => {
               if (!loading) {
-                e.currentTarget.style.color = 'var(--text-primary)';
-                e.currentTarget.style.borderColor = 'var(--accent-cyan)';
+                e.currentTarget.style.borderColor = 'var(--accent-primary)';
+                e.currentTarget.style.boxShadow = '0 4px 12px rgba(37, 99, 235, 0.12)';
               }
             }}
             onMouseLeave={(e) => {
               if (!loading) {
-                e.currentTarget.style.color = 'var(--text-secondary)';
                 e.currentTarget.style.borderColor = 'var(--border-color)';
+                e.currentTarget.style.boxShadow = '0 1px 3px rgba(0, 0, 0, 0.04)';
               }
             }}
           >
@@ -239,21 +240,18 @@ export default function Repositories() {
               setModalError('');
               setIsModalOpen(true);
             }}
+            className="btn-primary-gradient"
             style={{
               display: 'flex',
               alignItems: 'center',
               gap: '0.5rem',
               padding: '0.65rem 1.25rem',
-              backgroundColor: 'var(--accent-cyan)',
-              color: '#ffffff',
-              borderRadius: '8px',
+              borderRadius: '10px',
               fontWeight: 600,
-              fontSize: '0.875rem',
+              fontSize: '0.85rem',
+              border: 'none',
               cursor: 'pointer',
-              transition: 'opacity 0.15s ease',
             }}
-            onMouseEnter={(e) => (e.currentTarget.style.opacity = '0.9')}
-            onMouseLeave={(e) => (e.currentTarget.style.opacity = '1')}
           >
             <Plus size={16} />
             <span>Add Repository</span>
@@ -268,10 +266,10 @@ export default function Repositories() {
           justifyContent: 'space-between',
           alignItems: 'center',
           padding: '1rem 1.25rem',
-          backgroundColor: 'rgba(234, 179, 8, 0.1)',
-          border: '1px solid rgba(234, 179, 8, 0.3)',
+          backgroundColor: 'var(--severity-medium-bg)',
+          border: '1px solid var(--severity-medium-border)',
           borderRadius: '8px',
-          color: '#facc15',
+          color: 'var(--severity-medium)',
           fontSize: '0.875rem',
         }}>
           <div>
@@ -281,8 +279,8 @@ export default function Repositories() {
             to="/login"
             style={{
               padding: '0.4rem 0.85rem',
-              backgroundColor: '#eab308',
-              color: '#0f172a',
+              backgroundColor: 'var(--accent-cyan)',
+              color: '#ffffff',
               borderRadius: '6px',
               fontWeight: 600,
               fontSize: '0.8rem',
@@ -301,8 +299,8 @@ export default function Repositories() {
           alignItems: 'center',
           gap: '0.5rem',
           padding: '0.75rem 1rem',
-          backgroundColor: 'rgba(239, 68, 68, 0.1)',
-          border: '1px solid rgba(239, 68, 68, 0.3)',
+          backgroundColor: 'var(--severity-critical-bg)',
+          border: '1px solid var(--severity-critical-border)',
           borderRadius: '8px',
           color: 'var(--severity-critical)',
           fontSize: '0.85rem',
@@ -320,8 +318,8 @@ export default function Repositories() {
           justifyContent: 'space-between',
           gap: '0.75rem',
           padding: '0.75rem 1rem',
-          backgroundColor: scanNotification.type === 'success' ? 'rgba(34, 197, 94, 0.1)' : 'rgba(239, 68, 68, 0.1)',
-          border: `1px solid ${scanNotification.type === 'success' ? 'rgba(34, 197, 94, 0.3)' : 'rgba(239, 68, 68, 0.3)'}`,
+          backgroundColor: scanNotification.type === 'success' ? 'var(--status-success-bg)' : 'var(--severity-critical-bg)',
+          border: `1px solid ${scanNotification.type === 'success' ? 'var(--status-success-border)' : 'var(--severity-critical-border)'}`,
           borderRadius: '8px',
           color: scanNotification.type === 'success' ? 'var(--status-success)' : 'var(--severity-critical)',
           fontSize: '0.85rem',
@@ -381,12 +379,16 @@ export default function Repositories() {
       </div>
 
       {/* Repositories Table / Card List */}
-      <div style={{
-        backgroundColor: 'var(--bg-card)',
-        border: '1px solid var(--border-color)',
-        borderRadius: '10px',
-        overflow: 'hidden',
-      }}>
+      <div
+        className="card-prismatic"
+        style={{
+          backgroundColor: 'var(--bg-card)',
+          border: '1px solid var(--border-color)',
+          borderRadius: '16px',
+          overflow: 'hidden',
+          boxShadow: 'var(--card-shadow)',
+        }}
+      >
         {loading ? (
           <div style={{ padding: '3rem', textAlign: 'center', color: 'var(--text-secondary)' }}>
             <RefreshCw size={24} style={{ animation: 'spin 1s linear infinite', marginBottom: '0.5rem' }} />
@@ -511,13 +513,13 @@ export default function Repositories() {
                         display: 'inline-flex',
                         alignItems: 'center',
                         gap: '0.35rem',
-                        color: 'var(--accent-cyan)',
-                        backgroundColor: 'rgba(6, 182, 212, 0.1)',
-                        border: '1px solid rgba(6, 182, 212, 0.3)',
+                        color: 'var(--badge-info-text)',
+                        backgroundColor: 'var(--badge-info-bg)',
+                        border: '1px solid var(--badge-info-border)',
                         padding: '0.2rem 0.6rem',
                         borderRadius: '4px',
                         fontSize: '0.75rem',
-                        fontWeight: 500,
+                        fontWeight: 600,
                       }}>
                         <RefreshCw size={12} style={{ animation: 'spin 1s linear infinite' }} />
                         Scanning...
@@ -530,8 +532,8 @@ export default function Repositories() {
                           alignItems: 'center',
                           gap: '0.35rem',
                           color: 'var(--severity-critical)',
-                          backgroundColor: 'rgba(239, 68, 68, 0.1)',
-                          border: '1px solid rgba(239, 68, 68, 0.3)',
+                          backgroundColor: 'var(--severity-critical-bg)',
+                          border: '1px solid var(--severity-critical-border)',
                           padding: '0.2rem 0.6rem',
                           borderRadius: '4px',
                           fontSize: '0.75rem',
@@ -556,13 +558,13 @@ export default function Repositories() {
                         display: 'inline-flex',
                         alignItems: 'center',
                         gap: '0.35rem',
-                        color: '#facc15',
-                        backgroundColor: 'rgba(234, 179, 8, 0.1)',
-                        border: '1px solid rgba(234, 179, 8, 0.25)',
+                        color: 'var(--severity-medium)',
+                        backgroundColor: 'var(--severity-medium-bg)',
+                        border: '1px solid var(--severity-medium-border)',
                         padding: '0.2rem 0.6rem',
                         borderRadius: '4px',
                         fontSize: '0.75rem',
-                        fontWeight: 500,
+                        fontWeight: 600,
                       }}>
                         <Clock size={12} /> Pending First Scan
                       </span>
@@ -593,19 +595,19 @@ export default function Repositories() {
                             padding: '0.35rem 0.75rem',
                             borderRadius: '6px',
                             backgroundColor: isScanning 
-                              ? 'rgba(6, 182, 212, 0.15)' 
+                              ? 'var(--badge-info-bg)' 
                               : hasFailed 
-                              ? 'rgba(239, 68, 68, 0.15)' 
+                              ? 'var(--severity-critical-bg)' 
                               : 'var(--bg-secondary)',
                             border: `1px solid ${
                               isScanning 
-                                ? 'var(--accent-cyan)' 
+                                ? 'var(--badge-info-border)' 
                                 : hasFailed 
-                                ? 'rgba(239, 68, 68, 0.4)' 
+                                ? 'var(--severity-critical-border)' 
                                 : 'var(--border-color)'
                             }`,
                             color: isScanning 
-                              ? 'var(--accent-cyan)' 
+                              ? 'var(--badge-info-text)' 
                               : hasFailed 
                               ? 'var(--severity-critical)' 
                               : 'var(--text-secondary)',
@@ -618,13 +620,13 @@ export default function Repositories() {
                           onMouseEnter={(e) => {
                             if (!isScanning) {
                               e.currentTarget.style.color = hasFailed ? 'var(--severity-critical)' : 'var(--accent-cyan)';
-                              e.currentTarget.style.borderColor = hasFailed ? 'var(--severity-critical)' : 'var(--accent-cyan)';
+                              e.currentTarget.style.borderColor = hasFailed ? 'var(--severity-critical-border)' : 'var(--accent-cyan)';
                             }
                           }}
                           onMouseLeave={(e) => {
                             if (!isScanning) {
                               e.currentTarget.style.color = hasFailed ? 'var(--severity-critical)' : 'var(--text-secondary)';
-                              e.currentTarget.style.borderColor = hasFailed ? 'rgba(239, 68, 68, 0.4)' : 'var(--border-color)';
+                              e.currentTarget.style.borderColor = hasFailed ? 'var(--severity-critical-border)' : 'var(--border-color)';
                             }
                           }}
                         >
@@ -649,24 +651,27 @@ export default function Repositories() {
           left: 0,
           right: 0,
           bottom: 0,
-          backgroundColor: 'rgba(11, 15, 25, 0.8)',
-          backdropFilter: 'blur(4px)',
+          backgroundColor: 'rgba(15, 23, 42, 0.45)',
+          backdropFilter: 'blur(8px)',
           display: 'flex',
           alignItems: 'center',
           justifyContent: 'center',
           padding: '1.5rem',
           zIndex: 50,
         }}>
-          <div style={{
-            width: '100%',
-            maxWidth: '520px',
-            backgroundColor: 'var(--bg-card)',
-            border: '1px solid var(--border-color)',
-            borderRadius: '12px',
-            padding: '2rem',
-            boxShadow: '0 25px 50px -12px rgba(0, 0, 0, 0.7)',
-            position: 'relative',
-          }}>
+          <div
+            className="card-prismatic"
+            style={{
+              width: '100%',
+              maxWidth: '520px',
+              backgroundColor: '#ffffff',
+              border: '1px solid var(--border-color)',
+              borderRadius: '16px',
+              padding: '2rem',
+              boxShadow: '0 25px 50px -12px rgba(0, 0, 0, 0.15)',
+              position: 'relative',
+            }}
+          >
             {/* Modal Header */}
             <div style={{
               display: 'flex',
@@ -706,8 +711,8 @@ export default function Repositories() {
                 gap: '0.5rem',
                 padding: '0.75rem 1rem',
                 marginBottom: '1.25rem',
-                backgroundColor: 'rgba(239, 68, 68, 0.1)',
-                border: '1px solid rgba(239, 68, 68, 0.3)',
+                backgroundColor: 'var(--severity-critical-bg)',
+                border: '1px solid var(--severity-critical-border)',
                 borderRadius: '8px',
                 color: 'var(--severity-critical)',
                 fontSize: '0.85rem',
@@ -842,11 +847,11 @@ export default function Repositories() {
                 <button
                   type="submit"
                   disabled={submitting}
+                  className="btn-primary-gradient"
                   style={{
-                    padding: '0.65rem 1.25rem',
+                    padding: '0.65rem 1.35rem',
                     borderRadius: '8px',
-                    backgroundColor: submitting ? '#0284c7' : 'var(--accent-cyan)',
-                    color: '#ffffff',
+                    border: 'none',
                     fontSize: '0.875rem',
                     fontWeight: 600,
                     cursor: submitting ? 'not-allowed' : 'pointer',

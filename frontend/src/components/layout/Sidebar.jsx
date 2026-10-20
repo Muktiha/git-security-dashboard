@@ -40,13 +40,16 @@ export default function Sidebar() {
     alignItems: 'center',
     gap: '0.75rem',
     padding: '0.65rem 0.85rem',
-    borderRadius: '8px',
+    borderRadius: '10px',
     fontSize: '0.875rem',
     fontWeight: isActive ? 600 : 500,
-    color: isActive ? 'var(--accent-cyan)' : 'var(--text-secondary)',
-    backgroundColor: isActive ? 'var(--accent-cyan-glow)' : 'transparent',
-    border: isActive ? '1px solid rgba(14, 165, 233, 0.3)' : '1px solid transparent',
-    transition: 'all 0.15s ease',
+    color: isActive ? '#2563EB' : 'var(--text-secondary)',
+    background: isActive 
+      ? 'linear-gradient(135deg, rgba(37, 99, 235, 0.09) 0%, rgba(124, 58, 237, 0.09) 100%)' 
+      : 'transparent',
+    border: isActive ? '1px solid rgba(37, 99, 235, 0.22)' : '1px solid transparent',
+    boxShadow: isActive ? '0 2px 8px -2px rgba(37, 99, 235, 0.12)' : 'none',
+    transition: 'all 0.2s cubic-bezier(0.16, 1, 0.3, 1)',
   });
 
   return (
@@ -121,8 +124,8 @@ export default function Sidebar() {
                 transition: 'all 0.15s ease',
               }}
               onMouseEnter={(e) => {
-                e.currentTarget.style.backgroundColor = 'rgba(239, 68, 68, 0.1)';
-                e.currentTarget.style.borderColor = 'rgba(239, 68, 68, 0.3)';
+                e.currentTarget.style.backgroundColor = 'var(--severity-critical-bg)';
+                e.currentTarget.style.borderColor = 'var(--severity-critical-border)';
               }}
               onMouseLeave={(e) => {
                 e.currentTarget.style.backgroundColor = 'transparent';

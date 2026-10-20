@@ -12,7 +12,33 @@ export default function AuthLayout() {
       justifyContent: 'center',
       backgroundColor: 'var(--bg-primary)',
       padding: '1.5rem',
+      position: 'relative',
+      overflow: 'hidden',
     }}>
+      {/* Decorative Ambient Gradient Orbs */}
+      <div style={{
+        position: 'absolute',
+        top: '-10%',
+        left: '20%',
+        width: '450px',
+        height: '450px',
+        borderRadius: '50%',
+        background: 'radial-gradient(circle, rgba(37, 99, 235, 0.12) 0%, rgba(124, 58, 237, 0.05) 70%, transparent 100%)',
+        filter: 'blur(50px)',
+        pointerEvents: 'none',
+      }} />
+      <div style={{
+        position: 'absolute',
+        bottom: '-10%',
+        right: '20%',
+        width: '400px',
+        height: '400px',
+        borderRadius: '50%',
+        background: 'radial-gradient(circle, rgba(6, 182, 212, 0.12) 0%, rgba(37, 99, 235, 0.05) 70%, transparent 100%)',
+        filter: 'blur(50px)',
+        pointerEvents: 'none',
+      }} />
+
       {/* Brand Header */}
       <Link to="/dashboard" style={{
         display: 'flex',
@@ -20,25 +46,27 @@ export default function AuthLayout() {
         gap: '0.75rem',
         marginBottom: '2rem',
         textDecoration: 'none',
+        position: 'relative',
+        zIndex: 1,
       }}>
         <div style={{
-          width: '40px',
-          height: '40px',
-          borderRadius: '10px',
-          backgroundColor: 'var(--accent-cyan-glow)',
-          border: '1px solid var(--accent-cyan)',
+          width: '42px',
+          height: '42px',
+          borderRadius: '12px',
+          background: 'var(--gradient-primary)',
           display: 'flex',
           alignItems: 'center',
           justifyContent: 'center',
-          color: 'var(--accent-cyan)',
+          color: '#FFFFFF',
+          boxShadow: '0 6px 18px -2px rgba(37, 99, 235, 0.35)',
         }}>
           <Shield size={24} />
         </div>
         <div>
-          <div style={{ fontWeight: 700, fontSize: '1.15rem', color: 'var(--text-primary)' }}>
+          <div style={{ fontWeight: 800, fontSize: '1.2rem', color: 'var(--text-primary)', letterSpacing: '-0.01em' }}>
             Git Security Scanner
           </div>
-          <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>
+          <div style={{ fontSize: '0.75rem', color: 'var(--text-secondary)' }}>
             Government Repository Security Platform
           </div>
         </div>
@@ -48,11 +76,13 @@ export default function AuthLayout() {
       <div style={{
         width: '100%',
         maxWidth: '440px',
-        backgroundColor: 'var(--bg-card)',
+        backgroundColor: '#FFFFFF',
         border: '1px solid var(--border-color)',
-        borderRadius: '12px',
+        borderRadius: '16px',
         padding: '2.5rem',
-        boxShadow: '0 25px 50px -12px rgba(0, 0, 0, 0.5)',
+        boxShadow: '0 20px 40px -15px rgba(37, 99, 235, 0.1), 0 0 0 1px rgba(229, 234, 245, 0.8)',
+        position: 'relative',
+        zIndex: 1,
       }}>
         <Outlet />
       </div>

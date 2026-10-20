@@ -81,8 +81,8 @@ export default function Analytics() {
     return (
       <div style={{
         padding: '1.5rem',
-        backgroundColor: 'rgba(239, 68, 68, 0.1)',
-        border: '1px solid rgba(239, 68, 68, 0.3)',
+        backgroundColor: 'var(--severity-critical-bg)',
+        border: '1px solid var(--severity-critical-border)',
         borderRadius: '8px',
         color: 'var(--severity-critical)',
         display: 'flex',
@@ -98,24 +98,29 @@ export default function Analytics() {
   const hasScans = analytics && analytics.totalScans > 0;
   const hasFindings = analytics && analytics.totalFindings > 0;
 
-  // Custom Dark Tooltip for Recharts
+  // Custom Light Frosted Tooltip for Recharts
   const CustomTooltip = ({ active, payload, label }) => {
     if (active && payload && payload.length) {
       return (
         <div style={{
-          backgroundColor: '#1e293b',
+          backgroundColor: 'rgba(255, 255, 255, 0.96)',
+          backdropFilter: 'blur(8px)',
           border: '1px solid var(--border-color)',
-          borderRadius: '6px',
-          padding: '0.5rem 0.75rem',
+          borderRadius: '10px',
+          padding: '0.65rem 0.85rem',
           fontSize: '0.75rem',
-          color: '#f8fafc',
-          boxShadow: '0 4px 6px rgba(0, 0, 0, 0.3)',
+          color: 'var(--text-primary)',
+          boxShadow: 'var(--card-shadow-hover)',
         }}>
-          <p style={{ fontWeight: 600, marginBottom: '0.25rem' }}>{label || payload[0]?.name}</p>
+          <p style={{ fontWeight: 700, marginBottom: '0.35rem', color: 'var(--text-primary)', borderBottom: '1px solid var(--border-color)', paddingBottom: '0.25rem' }}>
+            {label || payload[0]?.name}
+          </p>
           {payload.map((item, idx) => (
-            <p key={idx} style={{ color: item.color || '#38bdf8', margin: '0.15rem 0' }}>
-              {item.name}: <strong>{item.value}</strong>
-            </p>
+            <div key={idx} style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', margin: '0.25rem 0', fontWeight: 500 }}>
+              <span style={{ width: '8px', height: '8px', borderRadius: '50%', backgroundColor: item.color || item.fill || 'var(--accent-primary)' }} />
+              <span style={{ color: 'var(--text-secondary)' }}>{item.name}:</span>
+              <strong style={{ color: 'var(--text-primary)', marginLeft: 'auto' }}>{item.value}</strong>
+            </div>
           ))}
         </div>
       );
@@ -128,13 +133,27 @@ export default function Analytics() {
       {/* Header */}
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '1rem' }}>
         <div>
-          <div style={{ display: 'flex', alignItems: 'center', gap: '0.6rem' }}>
-            <BarChart3 size={24} color="var(--accent-cyan)" />
-            <h1 style={{ fontSize: '1.75rem', fontWeight: 700, color: 'var(--text-primary)' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
+            <div
+              style={{
+                width: '38px',
+                height: '38px',
+                borderRadius: '10px',
+                background: 'var(--gradient-primary)',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                color: '#ffffff',
+                boxShadow: 'var(--glow-primary)',
+              }}
+            >
+              <BarChart3 size={20} />
+            </div>
+            <h1 style={{ fontSize: '1.85rem', fontWeight: 800, color: 'var(--text-primary)', letterSpacing: '-0.025em', margin: 0 }}>
               Security Posture Analytics
             </h1>
           </div>
-          <p style={{ fontSize: '0.875rem', color: 'var(--text-secondary)', marginTop: '0.25rem' }}>
+          <p style={{ fontSize: '0.875rem', color: 'var(--text-secondary)', marginTop: '0.45rem', marginBottom: 0 }}>
             Real-time vulnerability telemetry, lifecycle resolution velocity, and severity distribution across government open-source repositories.
           </p>
         </div>
@@ -145,15 +164,25 @@ export default function Analytics() {
           style={{
             display: 'inline-flex',
             alignItems: 'center',
-            gap: '0.45rem',
-            padding: '0.55rem 1rem',
-            backgroundColor: 'var(--bg-card)',
+            gap: '0.5rem',
+            padding: '0.6rem 1.15rem',
+            backgroundColor: '#ffffff',
             border: '1px solid var(--border-color)',
             color: 'var(--text-primary)',
-            borderRadius: '8px',
+            borderRadius: '10px',
             fontSize: '0.85rem',
             fontWeight: 600,
             cursor: 'pointer',
+            boxShadow: '0 1px 3px rgba(0, 0, 0, 0.04)',
+            transition: 'all 0.2s cubic-bezier(0.16, 1, 0.3, 1)',
+          }}
+          onMouseEnter={(e) => {
+            e.currentTarget.style.borderColor = 'var(--accent-primary)';
+            e.currentTarget.style.boxShadow = '0 4px 12px rgba(37, 99, 235, 0.12)';
+          }}
+          onMouseLeave={(e) => {
+            e.currentTarget.style.borderColor = 'var(--border-color)';
+            e.currentTarget.style.boxShadow = '0 1px 3px rgba(0, 0, 0, 0.04)';
           }}
         >
           <RefreshCw size={15} />
@@ -165,110 +194,183 @@ export default function Analytics() {
       <div style={{
         display: 'grid',
         gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))',
-        gap: '1rem',
+        gap: '1.25rem',
       }}>
         {/* Security Health Score */}
-        <div style={{
-          backgroundColor: 'var(--bg-card)',
-          border: '1px solid var(--border-color)',
-          borderRadius: '10px',
-          padding: '1.25rem',
-          display: 'flex',
-          flexDirection: 'column',
-          justifyContent: 'space-between',
-        }}>
+        <div
+          className="card-prismatic"
+          style={{
+            backgroundColor: 'var(--bg-card)',
+            border: '1px solid var(--border-color)',
+            borderRadius: '14px',
+            padding: '1.35rem',
+            display: 'flex',
+            flexDirection: 'column',
+            justifyContent: 'space-between',
+            boxShadow: 'var(--card-shadow)',
+          }}
+        >
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-            <span style={{ fontSize: '0.8rem', fontWeight: 600, color: 'var(--text-muted)' }}>Security Health Score</span>
-            <ShieldCheck size={18} color="var(--accent-cyan)" />
+            <span style={{ fontSize: '0.8rem', fontWeight: 600, color: 'var(--text-secondary)' }}>Security Health Score</span>
+            <div
+              style={{
+                width: '36px',
+                height: '36px',
+                borderRadius: '10px',
+                background: 'var(--gradient-teal)',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                color: '#ffffff',
+                boxShadow: 'var(--glow-teal)',
+              }}
+            >
+              <ShieldCheck size={18} />
+            </div>
           </div>
-          <div style={{ marginTop: '0.75rem', display: 'flex', alignItems: 'baseline', gap: '0.5rem' }}>
-            <span style={{ fontSize: '2rem', fontWeight: 800, color: 'var(--text-primary)' }}>
+          <div style={{ marginTop: '0.85rem', display: 'flex', alignItems: 'baseline', gap: '0.65rem' }}>
+            <span style={{ fontSize: '2.15rem', fontWeight: 800, color: 'var(--text-primary)', letterSpacing: '-0.02em' }}>
               {analytics?.globalScore ?? 100}%
             </span>
             <span style={{
-              fontSize: '0.8rem',
+              fontSize: '0.75rem',
               fontWeight: 700,
-              padding: '0.15rem 0.5rem',
-              borderRadius: '4px',
-              backgroundColor: (analytics?.globalScore ?? 100) >= 90 ? 'rgba(16, 185, 129, 0.15)' : 'rgba(239, 68, 68, 0.15)',
-              color: (analytics?.globalScore ?? 100) >= 90 ? 'var(--status-success)' : 'var(--severity-critical)',
+              padding: '0.2rem 0.5rem',
+              borderRadius: '6px',
+              backgroundColor: (analytics?.globalScore ?? 100) >= 90 ? 'rgba(16, 185, 129, 0.1)' : 'rgba(251, 113, 133, 0.12)',
+              border: `1px solid ${(analytics?.globalScore ?? 100) >= 90 ? 'rgba(16, 185, 129, 0.3)' : 'rgba(251, 113, 133, 0.3)'}`,
+              color: (analytics?.globalScore ?? 100) >= 90 ? '#059669' : '#E11D48',
             }}>
               Grade {analytics?.globalGrade || 'A'}
             </span>
           </div>
-          <div style={{ fontSize: '0.75rem', color: 'var(--text-secondary)', marginTop: '0.5rem' }}>
+          <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)', marginTop: '0.5rem', fontWeight: 500 }}>
             {analytics?.globalRiskLevel || 'Clean Posture'}
           </div>
         </div>
 
         {/* Resolution Rate */}
-        <div style={{
-          backgroundColor: 'var(--bg-card)',
-          border: '1px solid var(--border-color)',
-          borderRadius: '10px',
-          padding: '1.25rem',
-          display: 'flex',
-          flexDirection: 'column',
-          justifyContent: 'space-between',
-        }}>
+        <div
+          className="card-prismatic"
+          style={{
+            backgroundColor: 'var(--bg-card)',
+            border: '1px solid var(--border-color)',
+            borderRadius: '14px',
+            padding: '1.35rem',
+            display: 'flex',
+            flexDirection: 'column',
+            justifyContent: 'space-between',
+            boxShadow: 'var(--card-shadow)',
+          }}
+        >
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-            <span style={{ fontSize: '0.8rem', fontWeight: 600, color: 'var(--text-muted)' }}>Resolution Rate</span>
-            <CheckCircle2 size={18} color="var(--status-success)" />
+            <span style={{ fontSize: '0.8rem', fontWeight: 600, color: 'var(--text-secondary)' }}>Resolution Rate</span>
+            <div
+              style={{
+                width: '36px',
+                height: '36px',
+                borderRadius: '10px',
+                background: 'linear-gradient(135deg, #10B981 0%, #14B8A6 100%)',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                color: '#ffffff',
+                boxShadow: '0 4px 12px rgba(16, 185, 129, 0.25)',
+              }}
+            >
+              <CheckCircle2 size={18} />
+            </div>
           </div>
-          <div style={{ marginTop: '0.75rem', display: 'flex', alignItems: 'baseline', gap: '0.5rem' }}>
-            <span style={{ fontSize: '2rem', fontWeight: 800, color: 'var(--status-success)' }}>
+          <div style={{ marginTop: '0.85rem', display: 'flex', alignItems: 'baseline', gap: '0.65rem' }}>
+            <span style={{ fontSize: '2.15rem', fontWeight: 800, color: '#059669', letterSpacing: '-0.02em' }}>
               {analytics?.resolutionRate || '100%'}
             </span>
           </div>
-          <div style={{ fontSize: '0.75rem', color: 'var(--text-secondary)', marginTop: '0.5rem' }}>
+          <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)', marginTop: '0.5rem', fontWeight: 500 }}>
             {analytics?.resolvedFindings ?? 0} of {analytics?.totalFindings ?? 0} findings resolved
           </div>
         </div>
 
         {/* Repositories Scanned */}
-        <div style={{
-          backgroundColor: 'var(--bg-card)',
-          border: '1px solid var(--border-color)',
-          borderRadius: '10px',
-          padding: '1.25rem',
-          display: 'flex',
-          flexDirection: 'column',
-          justifyContent: 'space-between',
-        }}>
+        <div
+          className="card-prismatic"
+          style={{
+            backgroundColor: 'var(--bg-card)',
+            border: '1px solid var(--border-color)',
+            borderRadius: '14px',
+            padding: '1.35rem',
+            display: 'flex',
+            flexDirection: 'column',
+            justifyContent: 'space-between',
+            boxShadow: 'var(--card-shadow)',
+          }}
+        >
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-            <span style={{ fontSize: '0.8rem', fontWeight: 600, color: 'var(--text-muted)' }}>Tracked Repositories</span>
-            <FolderGit2 size={18} color="var(--accent-cyan)" />
+            <span style={{ fontSize: '0.8rem', fontWeight: 600, color: 'var(--text-secondary)' }}>Tracked Repositories</span>
+            <div
+              style={{
+                width: '36px',
+                height: '36px',
+                borderRadius: '10px',
+                background: 'var(--gradient-primary)',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                color: '#ffffff',
+                boxShadow: 'var(--glow-primary)',
+              }}
+            >
+              <FolderGit2 size={18} />
+            </div>
           </div>
-          <div style={{ marginTop: '0.75rem', display: 'flex', alignItems: 'baseline', gap: '0.5rem' }}>
-            <span style={{ fontSize: '2rem', fontWeight: 800, color: 'var(--text-primary)' }}>
+          <div style={{ marginTop: '0.85rem', display: 'flex', alignItems: 'baseline', gap: '0.65rem' }}>
+            <span style={{ fontSize: '2.15rem', fontWeight: 800, color: 'var(--text-primary)', letterSpacing: '-0.02em' }}>
               {analytics?.totalRepositories ?? 0}
             </span>
           </div>
-          <div style={{ fontSize: '0.75rem', color: 'var(--text-secondary)', marginTop: '0.5rem' }}>
+          <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)', marginTop: '0.5rem', fontWeight: 500 }}>
             {analytics?.scannedRepositories ?? 0} actively scanned with security tools
           </div>
         </div>
 
         {/* Total Scans Executed */}
-        <div style={{
-          backgroundColor: 'var(--bg-card)',
-          border: '1px solid var(--border-color)',
-          borderRadius: '10px',
-          padding: '1.25rem',
-          display: 'flex',
-          flexDirection: 'column',
-          justifyContent: 'space-between',
-        }}>
+        <div
+          className="card-prismatic"
+          style={{
+            backgroundColor: 'var(--bg-card)',
+            border: '1px solid var(--border-color)',
+            borderRadius: '14px',
+            padding: '1.35rem',
+            display: 'flex',
+            flexDirection: 'column',
+            justifyContent: 'space-between',
+            boxShadow: 'var(--card-shadow)',
+          }}
+        >
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-            <span style={{ fontSize: '0.8rem', fontWeight: 600, color: 'var(--text-muted)' }}>Total Scans Logged</span>
-            <Activity size={18} color="#f59e0b" />
+            <span style={{ fontSize: '0.8rem', fontWeight: 600, color: 'var(--text-secondary)' }}>Total Scans Logged</span>
+            <div
+              style={{
+                width: '36px',
+                height: '36px',
+                borderRadius: '10px',
+                background: 'var(--gradient-violet)',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                color: '#ffffff',
+                boxShadow: 'var(--glow-violet)',
+              }}
+            >
+              <Activity size={18} />
+            </div>
           </div>
-          <div style={{ marginTop: '0.75rem', display: 'flex', alignItems: 'baseline', gap: '0.5rem' }}>
-            <span style={{ fontSize: '2rem', fontWeight: 800, color: 'var(--text-primary)' }}>
+          <div style={{ marginTop: '0.85rem', display: 'flex', alignItems: 'baseline', gap: '0.65rem' }}>
+            <span style={{ fontSize: '2.15rem', fontWeight: 800, color: 'var(--text-primary)', letterSpacing: '-0.02em' }}>
               {analytics?.totalScans ?? 0}
             </span>
           </div>
-          <div style={{ fontSize: '0.75rem', color: 'var(--text-secondary)', marginTop: '0.5rem' }}>
+          <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)', marginTop: '0.5rem', fontWeight: 500 }}>
             Gitleaks secrets & Trivy vulnerability scans
           </div>
         </div>
@@ -280,8 +382,8 @@ export default function Analytics() {
         alignItems: 'center',
         gap: '0.6rem',
         padding: '0.75rem 1rem',
-        backgroundColor: 'rgba(14, 165, 233, 0.08)',
-        border: '1px solid rgba(14, 165, 233, 0.25)',
+        backgroundColor: 'var(--badge-info-bg)',
+        border: '1px solid var(--badge-info-border)',
         borderRadius: '8px',
         fontSize: '0.78rem',
         color: 'var(--text-secondary)',
@@ -334,29 +436,55 @@ export default function Analytics() {
           {/* Row 1: Severity Distribution & Lifecycle Status */}
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(380px, 1fr))', gap: '1.5rem' }}>
             {/* Severity Distribution Chart */}
-            <div style={{
-              backgroundColor: 'var(--bg-card)',
-              border: '1px solid var(--border-color)',
-              borderRadius: '12px',
-              padding: '1.5rem',
-            }}>
-              <h3 style={{ fontSize: '1rem', fontWeight: 700, color: 'var(--text-primary)', marginBottom: '0.25rem' }}>
+            <div
+              className="card-prismatic"
+              style={{
+                backgroundColor: 'var(--bg-card)',
+                border: '1px solid var(--border-color)',
+                borderRadius: '16px',
+                padding: '1.5rem',
+                boxShadow: 'var(--card-shadow)',
+              }}
+            >
+              <h3 style={{ fontSize: '1rem', fontWeight: 700, color: 'var(--text-primary)', margin: 0 }}>
                 Severity Distribution
               </h3>
-              <p style={{ fontSize: '0.75rem', color: 'var(--text-muted)', marginBottom: '1.25rem' }}>
+              <p style={{ fontSize: '0.75rem', color: 'var(--text-muted)', marginTop: '0.25rem', marginBottom: '1.25rem' }}>
                 Categorization of active vulnerabilities and secret leaks by CVSS impact.
               </p>
               <div style={{ height: '260px' }}>
                 <ResponsiveContainer width="100%" height="100%">
                   <BarChart data={analytics?.severityDistribution || []} margin={{ top: 10, right: 10, left: -20, bottom: 0 }}>
-                    <CartesianGrid strokeDasharray="3 3" stroke="#334155" />
-                    <XAxis dataKey="name" stroke="#94a3b8" fontSize={12} />
-                    <YAxis stroke="#94a3b8" fontSize={12} allowDecimals={false} />
+                    <defs>
+                      <linearGradient id="anl-bar-CRITICAL" x1="0" y1="0" x2="0" y2="1">
+                        <stop offset="0%" stopColor="#FB7185" />
+                        <stop offset="100%" stopColor="#E11D48" />
+                      </linearGradient>
+                      <linearGradient id="anl-bar-HIGH" x1="0" y1="0" x2="0" y2="1">
+                        <stop offset="0%" stopColor="#F97316" />
+                        <stop offset="100%" stopColor="#EA580C" />
+                      </linearGradient>
+                      <linearGradient id="anl-bar-MEDIUM" x1="0" y1="0" x2="0" y2="1">
+                        <stop offset="0%" stopColor="#FBBF24" />
+                        <stop offset="100%" stopColor="#D97706" />
+                      </linearGradient>
+                      <linearGradient id="anl-bar-LOW" x1="0" y1="0" x2="0" y2="1">
+                        <stop offset="0%" stopColor="#06B6D4" />
+                        <stop offset="100%" stopColor="#2563EB" />
+                      </linearGradient>
+                    </defs>
+                    <CartesianGrid strokeDasharray="3 3" stroke="#E5EAF5" vertical={false} />
+                    <XAxis dataKey="name" stroke="#94A3B8" fontSize={11} tickLine={false} />
+                    <YAxis stroke="#94A3B8" fontSize={11} allowDecimals={false} tickLine={false} axisLine={false} />
                     <Tooltip content={<CustomTooltip />} />
-                    <Bar dataKey="count" radius={[4, 4, 0, 0]}>
-                      {(analytics?.severityDistribution || []).map((entry, index) => (
-                        <Cell key={`cell-${index}`} fill={entry.color} />
-                      ))}
+                    <Bar dataKey="count" radius={[6, 6, 0, 0]}>
+                      {(analytics?.severityDistribution || []).map((entry, index) => {
+                        const gradId = entry.name === 'CRITICAL' ? 'url(#anl-bar-CRITICAL)'
+                          : entry.name === 'HIGH' ? 'url(#anl-bar-HIGH)'
+                          : entry.name === 'MEDIUM' ? 'url(#anl-bar-MEDIUM)'
+                          : 'url(#anl-bar-LOW)';
+                        return <Cell key={`cell-${index}`} fill={gradId} />;
+                      })}
                     </Bar>
                   </BarChart>
                 </ResponsiveContainer>
@@ -364,16 +492,20 @@ export default function Analytics() {
             </div>
 
             {/* Lifecycle Status Distribution */}
-            <div style={{
-              backgroundColor: 'var(--bg-card)',
-              border: '1px solid var(--border-color)',
-              borderRadius: '12px',
-              padding: '1.5rem',
-            }}>
-              <h3 style={{ fontSize: '1rem', fontWeight: 700, color: 'var(--text-primary)', marginBottom: '0.25rem' }}>
+            <div
+              className="card-prismatic"
+              style={{
+                backgroundColor: 'var(--bg-card)',
+                border: '1px solid var(--border-color)',
+                borderRadius: '16px',
+                padding: '1.5rem',
+                boxShadow: 'var(--card-shadow)',
+              }}
+            >
+              <h3 style={{ fontSize: '1rem', fontWeight: 700, color: 'var(--text-primary)', margin: 0 }}>
                 Vulnerability Lifecycle Status
               </h3>
-              <p style={{ fontSize: '0.75rem', color: 'var(--text-muted)', marginBottom: '1.25rem' }}>
+              <p style={{ fontSize: '0.75rem', color: 'var(--text-muted)', marginTop: '0.25rem', marginBottom: '1.25rem' }}>
                 Current state of remediation workflows across all inspected repositories.
               </p>
               <div style={{ height: '260px' }}>
@@ -386,12 +518,12 @@ export default function Analytics() {
                         nameKey="label"
                         cx="50%"
                         cy="50%"
-                        innerRadius={55}
-                        outerRadius={90}
-                        paddingAngle={4}
+                        innerRadius={58}
+                        outerRadius={92}
+                        paddingAngle={5}
                       >
                         {(analytics?.lifecycleBreakdown || []).map((entry, index) => (
-                          <Cell key={`cell-${index}`} fill={entry.color} />
+                          <Cell key={`cell-${index}`} fill={entry.color} stroke="#ffffff" strokeWidth={2} />
                         ))}
                       </Pie>
                       <Tooltip content={<CustomTooltip />} />
@@ -408,18 +540,22 @@ export default function Analytics() {
           </div>
 
           {/* Row 2: Scan History Trends (Line Chart) */}
-          <div style={{
-            backgroundColor: 'var(--bg-card)',
-            border: '1px solid var(--border-color)',
-            borderRadius: '12px',
-            padding: '1.5rem',
-          }}>
+          <div
+            className="card-prismatic"
+            style={{
+              backgroundColor: 'var(--bg-card)',
+              border: '1px solid var(--border-color)',
+              borderRadius: '16px',
+              padding: '1.5rem',
+              boxShadow: 'var(--card-shadow)',
+            }}
+          >
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.5rem', flexWrap: 'wrap', gap: '0.5rem' }}>
               <div>
-                <h3 style={{ fontSize: '1rem', fontWeight: 700, color: 'var(--text-primary)' }}>
+                <h3 style={{ fontSize: '1rem', fontWeight: 700, color: 'var(--text-primary)', margin: 0 }}>
                   Scan History & Finding Velocity Trend
                 </h3>
-                <p style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>
+                <p style={{ fontSize: '0.75rem', color: 'var(--text-muted)', marginTop: '0.25rem', marginBottom: 0 }}>
                   Chronological progression of detected security findings across recent scans.
                 </p>
               </div>
@@ -428,14 +564,28 @@ export default function Analytics() {
               {(analytics?.scanTrends || []).length > 0 ? (
                 <ResponsiveContainer width="100%" height="100%">
                   <LineChart data={analytics.scanTrends} margin={{ top: 10, right: 20, left: -20, bottom: 0 }}>
-                    <CartesianGrid strokeDasharray="3 3" stroke="#334155" />
-                    <XAxis dataKey="date" stroke="#94a3b8" fontSize={11} />
-                    <YAxis stroke="#94a3b8" fontSize={11} allowDecimals={false} />
+                    <defs>
+                      <linearGradient id="anl-line-total" x1="0" y1="0" x2="1" y2="0">
+                        <stop offset="0%" stopColor="#2563EB" />
+                        <stop offset="100%" stopColor="#7C3AED" />
+                      </linearGradient>
+                      <linearGradient id="anl-line-crit" x1="0" y1="0" x2="1" y2="0">
+                        <stop offset="0%" stopColor="#FB7185" />
+                        <stop offset="100%" stopColor="#E11D48" />
+                      </linearGradient>
+                      <linearGradient id="anl-line-high" x1="0" y1="0" x2="1" y2="0">
+                        <stop offset="0%" stopColor="#F97316" />
+                        <stop offset="100%" stopColor="#EA580C" />
+                      </linearGradient>
+                    </defs>
+                    <CartesianGrid strokeDasharray="3 3" stroke="#E5EAF5" vertical={false} />
+                    <XAxis dataKey="date" stroke="#94A3B8" fontSize={11} tickLine={false} />
+                    <YAxis stroke="#94A3B8" fontSize={11} allowDecimals={false} tickLine={false} axisLine={false} />
                     <Tooltip content={<CustomTooltip />} />
                     <Legend verticalAlign="top" height={36} wrapperStyle={{ fontSize: '0.75rem' }} />
-                    <Line type="monotone" dataKey="totalFindings" name="Total Findings" stroke="#0ea5e9" strokeWidth={2} dot={{ r: 4 }} activeDot={{ r: 6 }} />
-                    <Line type="monotone" dataKey="critical" name="Critical" stroke="#ef4444" strokeWidth={2} dot={{ r: 3 }} />
-                    <Line type="monotone" dataKey="high" name="High" stroke="#f97316" strokeWidth={2} dot={{ r: 3 }} />
+                    <Line type="monotone" dataKey="totalFindings" name="Total Findings" stroke="url(#anl-line-total)" strokeWidth={2.5} dot={{ r: 3, fill: '#2563EB', stroke: '#ffffff' }} activeDot={{ r: 5 }} />
+                    <Line type="monotone" dataKey="critical" name="Critical" stroke="url(#anl-line-crit)" strokeWidth={2.5} dot={{ r: 3, fill: '#E11D48', stroke: '#ffffff' }} activeDot={{ r: 5 }} />
+                    <Line type="monotone" dataKey="high" name="High" stroke="url(#anl-line-high)" strokeWidth={2.5} dot={{ r: 3, fill: '#EA580C', stroke: '#ffffff' }} activeDot={{ r: 5 }} />
                   </LineChart>
                 </ResponsiveContainer>
               ) : (
@@ -449,29 +599,43 @@ export default function Analytics() {
           {/* Row 3: Findings by Repository & Scanner Comparison */}
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(380px, 1fr))', gap: '1.5rem' }}>
             {/* Findings by Repository */}
-            <div style={{
-              backgroundColor: 'var(--bg-card)',
-              border: '1px solid var(--border-color)',
-              borderRadius: '12px',
-              padding: '1.5rem',
-            }}>
-              <h3 style={{ fontSize: '1rem', fontWeight: 700, color: 'var(--text-primary)', marginBottom: '0.25rem' }}>
+            <div
+              className="card-prismatic"
+              style={{
+                backgroundColor: 'var(--bg-card)',
+                border: '1px solid var(--border-color)',
+                borderRadius: '16px',
+                padding: '1.5rem',
+                boxShadow: 'var(--card-shadow)',
+              }}
+            >
+              <h3 style={{ fontSize: '1rem', fontWeight: 700, color: 'var(--text-primary)', margin: 0 }}>
                 Findings by Repository
               </h3>
-              <p style={{ fontSize: '0.75rem', color: 'var(--text-muted)', marginBottom: '1.25rem' }}>
+              <p style={{ fontSize: '0.75rem', color: 'var(--text-muted)', marginTop: '0.25rem', marginBottom: '1.25rem' }}>
                 Comparative vulnerability breakdown across individual codebases.
               </p>
               <div style={{ height: '260px' }}>
                 {(analytics?.findingsByRepository || []).length > 0 ? (
                   <ResponsiveContainer width="100%" height="100%">
                     <BarChart data={analytics.findingsByRepository} layout="vertical" margin={{ top: 5, right: 20, left: 20, bottom: 5 }}>
-                      <CartesianGrid strokeDasharray="3 3" stroke="#334155" />
-                      <XAxis type="number" stroke="#94a3b8" fontSize={11} allowDecimals={false} />
-                      <YAxis dataKey="name" type="category" stroke="#94a3b8" fontSize={11} width={80} />
+                      <defs>
+                        <linearGradient id="anl-repo-secrets" x1="0" y1="0" x2="1" y2="0">
+                          <stop offset="0%" stopColor="#FBBF24" />
+                          <stop offset="100%" stopColor="#D97706" />
+                        </linearGradient>
+                        <linearGradient id="anl-repo-cves" x1="0" y1="0" x2="1" y2="0">
+                          <stop offset="0%" stopColor="#06B6D4" />
+                          <stop offset="100%" stopColor="#2563EB" />
+                        </linearGradient>
+                      </defs>
+                      <CartesianGrid strokeDasharray="3 3" stroke="#E5EAF5" horizontal={false} />
+                      <XAxis type="number" stroke="#94A3B8" fontSize={11} allowDecimals={false} tickLine={false} axisLine={false} />
+                      <YAxis dataKey="name" type="category" stroke="#64748b" fontSize={11} width={80} tickLine={false} />
                       <Tooltip content={<CustomTooltip />} />
                       <Legend wrapperStyle={{ fontSize: '0.75rem' }} />
-                      <Bar dataKey="secrets" name="Gitleaks Secrets" fill="#f59e0b" stackId="a" />
-                      <Bar dataKey="vulnerabilities" name="Trivy CVEs" fill="#0ea5e9" stackId="a" />
+                      <Bar dataKey="secrets" name="Gitleaks Secrets" fill="url(#anl-repo-secrets)" stackId="a" radius={[0, 0, 0, 0]} />
+                      <Bar dataKey="vulnerabilities" name="Trivy CVEs" fill="url(#anl-repo-cves)" stackId="a" radius={[0, 6, 6, 0]} />
                     </BarChart>
                   </ResponsiveContainer>
                 ) : (
@@ -483,16 +647,20 @@ export default function Analytics() {
             </div>
 
             {/* Scanner Engine Distribution */}
-            <div style={{
-              backgroundColor: 'var(--bg-card)',
-              border: '1px solid var(--border-color)',
-              borderRadius: '12px',
-              padding: '1.5rem',
-            }}>
-              <h3 style={{ fontSize: '1rem', fontWeight: 700, color: 'var(--text-primary)', marginBottom: '0.25rem' }}>
+            <div
+              className="card-prismatic"
+              style={{
+                backgroundColor: 'var(--bg-card)',
+                border: '1px solid var(--border-color)',
+                borderRadius: '16px',
+                padding: '1.5rem',
+                boxShadow: 'var(--card-shadow)',
+              }}
+            >
+              <h3 style={{ fontSize: '1rem', fontWeight: 700, color: 'var(--text-primary)', margin: 0 }}>
                 Scanner Engine Coverage
               </h3>
-              <p style={{ fontSize: '0.75rem', color: 'var(--text-muted)', marginBottom: '1.25rem' }}>
+              <p style={{ fontSize: '0.75rem', color: 'var(--text-muted)', marginTop: '0.25rem', marginBottom: '1.25rem' }}>
                 Secret leak detection (Gitleaks) versus dependency vulnerability scanning (Trivy).
               </p>
               <div style={{ height: '260px' }}>
@@ -505,11 +673,13 @@ export default function Analytics() {
                         nameKey="name"
                         cx="50%"
                         cy="50%"
+                        innerRadius={50}
                         outerRadius={85}
-                        label={({ name, percent }) => `${(percent * 100).toFixed(0)}%`}
+                        paddingAngle={5}
+                        label={({ name, percent }) => `${name} ${(percent * 100).toFixed(0)}%`}
                       >
                         {(analytics?.scannerBreakdown || []).map((entry, index) => (
-                          <Cell key={`cell-${index}`} fill={entry.color} />
+                          <Cell key={`cell-${index}`} fill={entry.color} stroke="#ffffff" strokeWidth={2} />
                         ))}
                       </Pie>
                       <Tooltip content={<CustomTooltip />} />

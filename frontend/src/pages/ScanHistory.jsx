@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { 
   History, 
   GitCompare, 
@@ -78,18 +78,36 @@ export default function ScanHistory() {
     fetchData();
   }, []);
 
-  // Filter scans by repository if selected
-  const filteredScans = scans.filter((s) => {
-    if (selectedRepoId === 'ALL') return true;
-    const rId = s.repository?._id || s.repository;
-    return String(rId) === selectedRepoId;
-  });
+  // Filter scans by repository if selected (Memoized)
+  const filteredScans = useMemo(() => {
+    return scans.filter((s) => {
+      if (selectedRepoId === 'ALL') return true;
+      const rId = s.repository?._id || s.repository;
+      return String(rId) === selectedRepoId;
+    });
+  }, [scans, selectedRepoId]);
+
+  // Client-side pagination: 15 scans per page
+  const [currentPage, setCurrentPage] = useState(1);
+  const itemsPerPage = 15;
+
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [selectedRepoId]);
+
+  const totalPages = Math.max(1, Math.ceil(filteredScans.length / itemsPerPage));
+  const paginatedScans = useMemo(() => {
+    const startIdx = (currentPage - 1) * itemsPerPage;
+    return filteredScans.slice(startIdx, startIdx + itemsPerPage);
+  }, [filteredScans, currentPage]);
 
   // Repositories available for comparison
-  const compareRepoScans = scans.filter((s) => {
-    const rId = s.repository?._id || s.repository;
-    return String(rId) === compareRepoId;
-  });
+  const compareRepoScans = useMemo(() => {
+    return scans.filter((s) => {
+      const rId = s.repository?._id || s.repository;
+      return String(rId) === compareRepoId;
+    });
+  }, [scans, compareRepoId]);
 
   // Auto-select initial 2 scans for comparison when compareRepoId changes
   useEffect(() => {
@@ -150,9 +168,9 @@ export default function ScanHistory() {
           borderRadius: '9999px',
           fontSize: '0.72rem',
           fontWeight: 700,
-          backgroundColor: 'rgba(16, 185, 129, 0.15)',
+          backgroundColor: 'var(--status-success-bg)',
           color: 'var(--status-success)',
-          border: '1px solid rgba(16, 185, 129, 0.3)',
+          border: '1px solid var(--status-success-border)',
         }}>
           COMPLETED
         </span>
@@ -165,9 +183,9 @@ export default function ScanHistory() {
           borderRadius: '9999px',
           fontSize: '0.72rem',
           fontWeight: 700,
-          backgroundColor: 'rgba(239, 68, 68, 0.15)',
+          backgroundColor: 'var(--severity-critical-bg)',
           color: 'var(--severity-critical)',
-          border: '1px solid rgba(239, 68, 68, 0.3)',
+          border: '1px solid var(--severity-critical-border)',
         }}>
           FAILED
         </span>
@@ -179,9 +197,9 @@ export default function ScanHistory() {
         borderRadius: '9999px',
         fontSize: '0.72rem',
         fontWeight: 700,
-        backgroundColor: 'rgba(14, 165, 233, 0.15)',
-        color: 'var(--accent-cyan)',
-        border: '1px solid rgba(14, 165, 233, 0.3)',
+        backgroundColor: 'var(--badge-info-bg)',
+        color: 'var(--badge-info-text)',
+        border: '1px solid var(--badge-info-border)',
       }}>
         RUNNING
       </span>
@@ -207,26 +225,27 @@ export default function ScanHistory() {
         {/* Tab Switcher */}
         <div style={{
           display: 'flex',
-          padding: '0.25rem',
-          backgroundColor: 'var(--bg-card)',
+          padding: '0.3rem',
+          backgroundColor: '#ffffff',
           border: '1px solid var(--border-color)',
-          borderRadius: '8px',
+          borderRadius: '10px',
+          boxShadow: '0 1px 3px rgba(0, 0, 0, 0.04)',
         }}>
           <button
             onClick={() => setActiveTab('LOGS')}
             style={{
-              padding: '0.45rem 1rem',
-              borderRadius: '6px',
+              padding: '0.5rem 1.15rem',
+              borderRadius: '8px',
               fontSize: '0.825rem',
               fontWeight: 600,
-              backgroundColor: activeTab === 'LOGS' ? 'var(--accent-cyan)' : 'transparent',
-              color: activeTab === 'LOGS' ? '#ffffff' : 'var(--text-secondary)',
-              border: 'none',
+              backgroundColor: activeTab === 'LOGS' ? 'rgba(37, 99, 235, 0.1)' : 'transparent',
+              color: activeTab === 'LOGS' ? 'var(--accent-primary)' : 'var(--text-secondary)',
+              border: activeTab === 'LOGS' ? '1px solid rgba(37, 99, 235, 0.25)' : '1px solid transparent',
               cursor: 'pointer',
               display: 'flex',
               alignItems: 'center',
-              gap: '0.4rem',
-              transition: 'all 0.15s ease',
+              gap: '0.45rem',
+              transition: 'all 0.2s cubic-bezier(0.16, 1, 0.3, 1)',
             }}
           >
             <History size={15} />
@@ -235,18 +254,18 @@ export default function ScanHistory() {
           <button
             onClick={() => setActiveTab('COMPARE')}
             style={{
-              padding: '0.45rem 1rem',
-              borderRadius: '6px',
+              padding: '0.5rem 1.15rem',
+              borderRadius: '8px',
               fontSize: '0.825rem',
               fontWeight: 600,
-              backgroundColor: activeTab === 'COMPARE' ? 'var(--accent-cyan)' : 'transparent',
-              color: activeTab === 'COMPARE' ? '#ffffff' : 'var(--text-secondary)',
-              border: 'none',
+              backgroundColor: activeTab === 'COMPARE' ? 'rgba(37, 99, 235, 0.1)' : 'transparent',
+              color: activeTab === 'COMPARE' ? 'var(--accent-primary)' : 'var(--text-secondary)',
+              border: activeTab === 'COMPARE' ? '1px solid rgba(37, 99, 235, 0.25)' : '1px solid transparent',
               cursor: 'pointer',
               display: 'flex',
               alignItems: 'center',
-              gap: '0.4rem',
-              transition: 'all 0.15s ease',
+              gap: '0.45rem',
+              transition: 'all 0.2s cubic-bezier(0.16, 1, 0.3, 1)',
             }}
           >
             <GitCompare size={15} />
@@ -267,7 +286,7 @@ export default function ScanHistory() {
             gap: '1rem',
             backgroundColor: 'var(--bg-card)',
             padding: '0.85rem 1.25rem',
-            borderRadius: '10px',
+            borderRadius: '12px',
             border: '1px solid var(--border-color)',
           }}>
             <div style={{ display: 'flex', alignItems: 'center', gap: '0.6rem' }}>
@@ -277,7 +296,7 @@ export default function ScanHistory() {
                 value={selectedRepoId}
                 onChange={(e) => setSelectedRepoId(e.target.value)}
                 style={{
-                  padding: '0.4rem 0.85rem',
+                  padding: '0.45rem 0.85rem',
                   backgroundColor: 'var(--bg-secondary)',
                   border: '1px solid var(--border-color)',
                   borderRadius: '6px',
@@ -302,16 +321,20 @@ export default function ScanHistory() {
               style={{
                 display: 'inline-flex',
                 alignItems: 'center',
-                gap: '0.4rem',
-                padding: '0.4rem 0.85rem',
-                backgroundColor: 'var(--bg-secondary)',
+                gap: '0.45rem',
+                padding: '0.45rem 0.85rem',
+                backgroundColor: '#ffffff',
                 border: '1px solid var(--border-color)',
-                color: 'var(--text-secondary)',
-                borderRadius: '6px',
+                color: 'var(--text-primary)',
+                borderRadius: '8px',
                 fontSize: '0.8rem',
                 fontWeight: 600,
                 cursor: 'pointer',
+                boxShadow: '0 1px 2px rgba(0, 0, 0, 0.03)',
+                transition: 'all 0.15s ease',
               }}
+              onMouseEnter={(e) => (e.currentTarget.style.borderColor = 'var(--accent-primary)')}
+              onMouseLeave={(e) => (e.currentTarget.style.borderColor = 'var(--border-color)')}
             >
               <RefreshCw size={13} style={loading ? { animation: 'spin 1s linear infinite' } : {}} />
               <span>Refresh Log</span>
@@ -319,12 +342,16 @@ export default function ScanHistory() {
           </div>
 
           {/* Table Container */}
-          <div style={{
-            backgroundColor: 'var(--bg-card)',
-            border: '1px solid var(--border-color)',
-            borderRadius: '10px',
-            overflow: 'hidden',
-          }}>
+          <div
+            className="card-prismatic"
+            style={{
+              backgroundColor: 'var(--bg-card)',
+              border: '1px solid var(--border-color)',
+              borderRadius: '16px',
+              overflow: 'hidden',
+              boxShadow: 'var(--card-shadow)',
+            }}
+          >
             {filteredScans.length === 0 ? (
               <div style={{ padding: '3.5rem', textAlign: 'center', color: 'var(--text-muted)' }}>
                 <History size={40} style={{ marginBottom: '0.75rem', opacity: 0.5 }} />
@@ -336,7 +363,8 @@ export default function ScanHistory() {
                 </p>
               </div>
             ) : (
-              <div style={{ overflowX: 'auto' }}>
+              <>
+                <div style={{ overflowX: 'auto' }}>
                 <table style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'left', fontSize: '0.85rem' }}>
                   <thead>
                     <tr style={{ backgroundColor: 'var(--bg-secondary)', borderBottom: '1px solid var(--border-color)' }}>
@@ -350,7 +378,7 @@ export default function ScanHistory() {
                     </tr>
                   </thead>
                   <tbody>
-                    {filteredScans.map((s) => {
+                    {paginatedScans.map((s) => {
                       const repoName = s.repository?.name || 'Repository';
                       const repoOwner = s.repository?.owner || '';
                       const repoBranch = s.repository?.branch || 'main';
@@ -419,7 +447,7 @@ export default function ScanHistory() {
                                 <span style={{
                                   fontWeight: 700,
                                   fontSize: '0.9rem',
-                                  color: s.securityScore >= 90 ? 'var(--status-success)' : s.securityScore >= 75 ? '#eab308' : 'var(--severity-critical)',
+                                  color: s.securityScore >= 90 ? 'var(--status-success)' : s.securityScore >= 75 ? 'var(--severity-medium)' : 'var(--severity-critical)',
                                 }}>
                                   {s.securityScore}%
                                 </span>
@@ -428,7 +456,8 @@ export default function ScanHistory() {
                                   fontWeight: 700,
                                   padding: '0.1rem 0.35rem',
                                   borderRadius: '4px',
-                                  backgroundColor: s.securityScore >= 90 ? 'rgba(16, 185, 129, 0.15)' : 'rgba(239, 68, 68, 0.15)',
+                                  backgroundColor: s.securityScore >= 90 ? 'var(--status-success-bg)' : 'var(--severity-critical-bg)',
+                                  border: `1px solid ${s.securityScore >= 90 ? 'var(--status-success-border)' : 'var(--severity-critical-border)'}`,
                                   color: s.securityScore >= 90 ? 'var(--status-success)' : 'var(--severity-critical)',
                                 }}>
                                   Grade {s.grade}
@@ -488,7 +517,67 @@ export default function ScanHistory() {
                   </tbody>
                 </table>
               </div>
-            )}
+
+              {/* High-Performance Pagination Toolbar */}
+              {filteredScans.length > itemsPerPage && (
+                <div style={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'space-between',
+                  padding: '0.85rem 1.25rem',
+                  backgroundColor: 'var(--bg-card)',
+                  border: '1px solid var(--border-color)',
+                  borderRadius: '8px',
+                  flexWrap: 'wrap',
+                  gap: '0.75rem',
+                  marginTop: '0.5rem',
+                }}>
+                  <div style={{ fontSize: '0.8rem', color: 'var(--text-muted)' }}>
+                    Showing <strong style={{ color: 'var(--text-primary)' }}>{(currentPage - 1) * itemsPerPage + 1}</strong> to <strong style={{ color: 'var(--text-primary)' }}>{Math.min(currentPage * itemsPerPage, filteredScans.length)}</strong> of <strong style={{ color: 'var(--text-primary)' }}>{filteredScans.length}</strong> scans
+                  </div>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                    <button
+                      onClick={() => setCurrentPage((p) => Math.max(1, p - 1))}
+                      disabled={currentPage === 1}
+                      style={{
+                        padding: '0.35rem 0.75rem',
+                        backgroundColor: 'var(--bg-secondary)',
+                        border: '1px solid var(--border-color)',
+                        borderRadius: '6px',
+                        color: currentPage === 1 ? 'var(--text-muted)' : 'var(--text-primary)',
+                        fontSize: '0.75rem',
+                        fontWeight: 600,
+                        cursor: currentPage === 1 ? 'not-allowed' : 'pointer',
+                        transition: 'all 0.15s ease',
+                      }}
+                    >
+                      Previous
+                    </button>
+                    <span style={{ fontSize: '0.8rem', color: 'var(--text-secondary)', padding: '0 0.5rem' }}>
+                      Page {currentPage} of {totalPages}
+                    </span>
+                    <button
+                      onClick={() => setCurrentPage((p) => Math.min(totalPages, p + 1))}
+                      disabled={currentPage === totalPages}
+                      style={{
+                        padding: '0.35rem 0.75rem',
+                        backgroundColor: 'var(--bg-secondary)',
+                        border: '1px solid var(--border-color)',
+                        borderRadius: '6px',
+                        color: currentPage === totalPages ? 'var(--text-muted)' : 'var(--text-primary)',
+                        fontSize: '0.75rem',
+                        fontWeight: 600,
+                        cursor: currentPage === totalPages ? 'not-allowed' : 'pointer',
+                        transition: 'all 0.15s ease',
+                      }}
+                    >
+                      Next
+                    </button>
+                  </div>
+                </div>
+              )}
+            </>
+          )}
           </div>
         </div>
       )}
@@ -497,26 +586,30 @@ export default function ScanHistory() {
       {activeTab === 'COMPARE' && (
         <div style={{ display: 'flex', flexDirection: 'column', gap: '1.5rem' }}>
           {/* Comparator Selection Form Card */}
-          <div style={{
-            backgroundColor: 'var(--bg-card)',
-            border: '1px solid var(--border-color)',
-            borderRadius: '12px',
-            padding: '1.5rem',
-            display: 'flex',
-            flexDirection: 'column',
-            gap: '1.25rem',
-          }}>
-            <h3 style={{ fontSize: '1.1rem', fontWeight: 700, color: 'var(--text-primary)' }}>
+          <div
+            className="card-prismatic"
+            style={{
+              backgroundColor: 'var(--bg-card)',
+              border: '1px solid var(--border-color)',
+              borderRadius: '16px',
+              padding: '1.75rem',
+              display: 'flex',
+              flexDirection: 'column',
+              gap: '1.25rem',
+              boxShadow: 'var(--card-shadow)',
+            }}
+          >
+            <h3 style={{ fontSize: '1.15rem', fontWeight: 700, color: 'var(--text-primary)', margin: 0 }}>
               Configure Scan Comparison
             </h3>
 
             {compareError && (
               <div style={{
                 padding: '0.75rem 1rem',
-                backgroundColor: 'rgba(239, 68, 68, 0.12)',
-                border: '1px solid rgba(239, 68, 68, 0.3)',
+                backgroundColor: 'rgba(251, 113, 133, 0.12)',
+                border: '1px solid rgba(251, 113, 133, 0.3)',
                 borderRadius: '8px',
-                color: 'var(--severity-critical)',
+                color: '#E11D48',
                 fontSize: '0.85rem',
                 display: 'flex',
                 alignItems: 'center',
@@ -538,13 +631,14 @@ export default function ScanHistory() {
                   onChange={(e) => setCompareRepoId(e.target.value)}
                   style={{
                     width: '100%',
-                    padding: '0.6rem 0.85rem',
+                    padding: '0.65rem 0.85rem',
                     backgroundColor: 'var(--bg-secondary)',
                     border: '1px solid var(--border-color)',
                     borderRadius: '8px',
                     color: 'var(--text-primary)',
                     fontSize: '0.85rem',
                     outline: 'none',
+                    cursor: 'pointer',
                   }}
                 >
                   {repositories.map((repo) => (
@@ -565,13 +659,14 @@ export default function ScanHistory() {
                   onChange={(e) => setBaseScanId(e.target.value)}
                   style={{
                     width: '100%',
-                    padding: '0.6rem 0.85rem',
+                    padding: '0.65rem 0.85rem',
                     backgroundColor: 'var(--bg-secondary)',
                     border: '1px solid var(--border-color)',
                     borderRadius: '8px',
                     color: 'var(--text-primary)',
                     fontSize: '0.85rem',
                     outline: 'none',
+                    cursor: 'pointer',
                   }}
                 >
                   <option value="">Select older baseline scan...</option>
@@ -593,13 +688,14 @@ export default function ScanHistory() {
                   onChange={(e) => setTargetScanId(e.target.value)}
                   style={{
                     width: '100%',
-                    padding: '0.6rem 0.85rem',
+                    padding: '0.65rem 0.85rem',
                     backgroundColor: 'var(--bg-secondary)',
                     border: '1px solid var(--border-color)',
                     borderRadius: '8px',
                     color: 'var(--text-primary)',
                     fontSize: '0.85rem',
                     outline: 'none',
+                    cursor: 'pointer',
                   }}
                 >
                   <option value="">Select newer evaluation scan...</option>
@@ -616,6 +712,7 @@ export default function ScanHistory() {
                 <button
                   type="submit"
                   disabled={comparing || !baseScanId || !targetScanId || baseScanId === targetScanId}
+                  className="btn-primary-gradient"
                   style={{
                     width: '100%',
                     display: 'flex',
@@ -623,8 +720,6 @@ export default function ScanHistory() {
                     justifyContent: 'center',
                     gap: '0.5rem',
                     padding: '0.65rem 1rem',
-                    backgroundColor: 'var(--accent-cyan)',
-                    color: '#ffffff',
                     borderRadius: '8px',
                     fontWeight: 600,
                     fontSize: '0.875rem',
@@ -672,19 +767,23 @@ export default function ScanHistory() {
               <div style={{
                 display: 'grid',
                 gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))',
-                gap: '1rem',
+                gap: '1.25rem',
               }}>
                 {/* Score Delta */}
-                <div style={{
-                  backgroundColor: 'var(--bg-card)',
-                  border: '1px solid var(--border-color)',
-                  borderRadius: '10px',
-                  padding: '1.25rem',
-                }}>
+                <div
+                  className="card-prismatic"
+                  style={{
+                    backgroundColor: 'var(--bg-card)',
+                    border: '1px solid var(--border-color)',
+                    borderRadius: '14px',
+                    padding: '1.35rem',
+                    boxShadow: 'var(--card-shadow)',
+                  }}
+                >
                   <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)', fontWeight: 600 }}>SECURITY HEALTH SCORE DELTA</div>
                   <div style={{ marginTop: '0.5rem', display: 'flex', alignItems: 'baseline', gap: '0.5rem' }}>
                     <span style={{
-                      fontSize: '1.8rem',
+                      fontSize: '2rem',
                       fontWeight: 800,
                       color: comparisonResult.scoreDelta === null
                         ? 'var(--text-muted)'
@@ -693,6 +792,7 @@ export default function ScanHistory() {
                         : comparisonResult.scoreDelta < 0
                         ? 'var(--severity-critical)'
                         : 'var(--text-primary)',
+                      letterSpacing: '-0.02em',
                     }}>
                       {comparisonResult.scoreDelta === null
                         ? 'N/A'
@@ -707,51 +807,63 @@ export default function ScanHistory() {
                 </div>
 
                 {/* Newly Introduced Findings */}
-                <div style={{
-                  backgroundColor: 'var(--bg-card)',
-                  border: '1px solid var(--border-color)',
-                  borderRadius: '10px',
-                  padding: '1.25rem',
-                }}>
-                  <div style={{ fontSize: '0.75rem', color: 'var(--severity-critical)', fontWeight: 700, display: 'flex', alignItems: 'center', gap: '0.3rem' }}>
+                <div
+                  className="card-prismatic"
+                  style={{
+                    backgroundColor: 'var(--bg-card)',
+                    border: '1px solid var(--border-color)',
+                    borderRadius: '14px',
+                    padding: '1.35rem',
+                    boxShadow: 'var(--card-shadow)',
+                  }}
+                >
+                  <div style={{ fontSize: '0.75rem', color: '#E11D48', fontWeight: 700, display: 'flex', alignItems: 'center', gap: '0.3rem' }}>
                     <PlusCircle size={14} />
                     <span>NEWLY DETECTED FINDINGS</span>
                   </div>
-                  <div style={{ marginTop: '0.5rem', fontSize: '1.8rem', fontWeight: 800, color: 'var(--severity-critical)' }}>
+                  <div style={{ marginTop: '0.5rem', fontSize: '2rem', fontWeight: 800, color: '#E11D48', letterSpacing: '-0.02em' }}>
                     {comparisonResult.summary.newCount}
                   </div>
                   <div style={{ fontSize: '0.75rem', color: 'var(--text-secondary)' }}>Introduced in target scan</div>
                 </div>
 
                 {/* Fixed Findings */}
-                <div style={{
-                  backgroundColor: 'var(--bg-card)',
-                  border: '1px solid var(--border-color)',
-                  borderRadius: '10px',
-                  padding: '1.25rem',
-                }}>
-                  <div style={{ fontSize: '0.75rem', color: 'var(--status-success)', fontWeight: 700, display: 'flex', alignItems: 'center', gap: '0.3rem' }}>
+                <div
+                  className="card-prismatic"
+                  style={{
+                    backgroundColor: 'var(--bg-card)',
+                    border: '1px solid var(--border-color)',
+                    borderRadius: '14px',
+                    padding: '1.35rem',
+                    boxShadow: 'var(--card-shadow)',
+                  }}
+                >
+                  <div style={{ fontSize: '0.75rem', color: '#059669', fontWeight: 700, display: 'flex', alignItems: 'center', gap: '0.3rem' }}>
                     <MinusCircle size={14} />
                     <span>FIXED FINDINGS</span>
                   </div>
-                  <div style={{ marginTop: '0.5rem', fontSize: '1.8rem', fontWeight: 800, color: 'var(--status-success)' }}>
+                  <div style={{ marginTop: '0.5rem', fontSize: '2rem', fontWeight: 800, color: '#059669', letterSpacing: '-0.02em' }}>
                     {comparisonResult.summary.fixedCount}
                   </div>
                   <div style={{ fontSize: '0.75rem', color: 'var(--text-secondary)' }}>Resolved since base scan</div>
                 </div>
 
                 {/* Persistent Findings */}
-                <div style={{
-                  backgroundColor: 'var(--bg-card)',
-                  border: '1px solid var(--border-color)',
-                  borderRadius: '10px',
-                  padding: '1.25rem',
-                }}>
-                  <div style={{ fontSize: '0.75rem', color: '#eab308', fontWeight: 700, display: 'flex', alignItems: 'center', gap: '0.3rem' }}>
+                <div
+                  className="card-prismatic"
+                  style={{
+                    backgroundColor: 'var(--bg-card)',
+                    border: '1px solid var(--border-color)',
+                    borderRadius: '14px',
+                    padding: '1.35rem',
+                    boxShadow: 'var(--card-shadow)',
+                  }}
+                >
+                  <div style={{ fontSize: '0.75rem', color: '#D97706', fontWeight: 700, display: 'flex', alignItems: 'center', gap: '0.3rem' }}>
                     <HelpCircle size={14} />
                     <span>PERSISTENT FINDINGS</span>
                   </div>
-                  <div style={{ marginTop: '0.5rem', fontSize: '1.8rem', fontWeight: 800, color: '#eab308' }}>
+                  <div style={{ marginTop: '0.5rem', fontSize: '2rem', fontWeight: 800, color: '#D97706', letterSpacing: '-0.02em' }}>
                     {comparisonResult.summary.persistentCount}
                   </div>
                   <div style={{ fontSize: '0.75rem', color: 'var(--text-secondary)' }}>Present across both scans</div>
@@ -763,7 +875,7 @@ export default function ScanHistory() {
               {comparisonResult.newlyDetected.length > 0 && (
                 <div style={{
                   backgroundColor: 'var(--bg-card)',
-                  border: '1px solid rgba(239, 68, 68, 0.3)',
+                  border: '1px solid var(--severity-critical-border)',
                   borderRadius: '10px',
                   padding: '1.25rem',
                 }}>
@@ -792,7 +904,7 @@ export default function ScanHistory() {
               {comparisonResult.fixed.length > 0 && (
                 <div style={{
                   backgroundColor: 'var(--bg-card)',
-                  border: '1px solid rgba(16, 185, 129, 0.3)',
+                  border: '1px solid var(--status-success-border)',
                   borderRadius: '10px',
                   padding: '1.25rem',
                 }}>
@@ -821,11 +933,11 @@ export default function ScanHistory() {
               {comparisonResult.persistent.length > 0 && (
                 <div style={{
                   backgroundColor: 'var(--bg-card)',
-                  border: '1px solid var(--border-color)',
+                  border: '1px solid var(--severity-medium-border)',
                   borderRadius: '10px',
                   padding: '1.25rem',
                 }}>
-                  <h4 style={{ fontSize: '0.95rem', fontWeight: 700, color: '#eab308', marginBottom: '0.75rem' }}>
+                  <h4 style={{ fontSize: '0.95rem', fontWeight: 700, color: 'var(--severity-medium)', marginBottom: '0.75rem' }}>
                     🟡 Persistent Findings ({comparisonResult.persistent.length})
                   </h4>
                   <div style={{ display: 'flex', flexDirection: 'column', gap: '0.6rem' }}>
@@ -837,7 +949,7 @@ export default function ScanHistory() {
                             {f.file ? `${f.file}${f.line ? `:${f.line}` : ''}` : f.identifier}
                           </div>
                         </div>
-                        <span style={{ fontSize: '0.72rem', fontWeight: 700, color: '#eab308' }}>
+                        <span style={{ fontSize: '0.72rem', fontWeight: 700, color: 'var(--severity-medium)' }}>
                           PERSISTENT
                         </span>
                       </div>

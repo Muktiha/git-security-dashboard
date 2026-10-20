@@ -961,8 +961,8 @@ export const getDashboardStats = async (req, res) => {
 
       if (baseScan) {
         const [targetF, baseF] = await Promise.all([
-          Finding.find({ scanId: targetScan._id }).lean(),
-          Finding.find({ scanId: baseScan._id }).lean(),
+          Finding.find({ scanId: targetScan._id }).select('scanId fingerprint scanner identifier title file line status severity').lean(),
+          Finding.find({ scanId: baseScan._id }).select('scanId fingerprint scanner identifier title file line status severity').lean(),
         ]);
 
         const getFingerprint = (f) => f.fingerprint || `${f.scanner}:${f.identifier || f.title}:${f.file || ''}:${f.line || ''}`;
@@ -1071,8 +1071,17 @@ export const getDashboardStats = async (req, res) => {
       });
     }
 
-    // Sort combined activity by timestamp descending
-    recentActivity.sort((a, b) => new Date(b.timestamp) - new Date(a.timestamp));
+    // Format backwards-compatible recentScans list
+    const recentScansList = scans.slice(0, 10).map((s) => ({
+      scanId: s._id,
+      repositoryId: s.repositoryId?._id || s.repositoryId,
+      repositoryName: s.repositoryId?.name || 'Repository',
+      status: s.status,
+      completedAt: s.completedAt || s.createdAt,
+      totalFindings: s.totalFindings || 0,
+      criticalCount: s.criticalCount || 0,
+      highCount: s.highCount || 0,
+    }));
 
     return res.status(200).json({
       success: true,
@@ -1104,6 +1113,7 @@ export const getDashboardStats = async (req, res) => {
         newVsResolvedTrends,
         severityDistribution,
       },
+      recentScans: recentScansList,
       recentActivity: recentActivity.slice(0, 8),
       availableRepositories: userRepos.map((r) => ({ _id: r._id, name: r.name, owner: r.owner })),
     });
@@ -1204,20 +1214,25 @@ export const updateFindingStatus = async (req, res) => {
  */
 export const getSecurityAnalytics = async (req, res) => {
   try {
-    const userRepos = await Repository.find({ userId: req.user.id }).sort({ createdAt: -1 });
+    const userRepos = await Repository.find({ userId: req.user.id })
+      .select('_id name owner lastScannedAt createdAt')
+      .sort({ createdAt: -1 })
+      .lean();
     const repoIds = userRepos.map((r) => r._id);
 
-    // Fetch findings populated with repo details
-    const findings = await Finding.find({ repositoryId: { $in: repoIds } })
-      .populate('repositoryId', 'name owner')
-      .lean();
-
-    // Fetch completed and failed scans
-    const recentScans = await Scan.find({ repositoryId: { $in: repoIds } })
-      .populate('repositoryId', 'name owner')
-      .sort({ createdAt: -1 })
-      .limit(30)
-      .lean();
+    // Fetch findings and scans concurrently with field projections
+    const [findings, recentScans] = await Promise.all([
+      Finding.find({ repositoryId: { $in: repoIds } })
+        .select('repositoryId scanner severity status')
+        .populate('repositoryId', 'name owner')
+        .lean(),
+      Scan.find({ repositoryId: { $in: repoIds } })
+        .select('repositoryId status completedAt duration totalFindings criticalCount highCount mediumCount lowCount')
+        .populate('repositoryId', 'name owner')
+        .sort({ createdAt: -1 })
+        .limit(30)
+        .lean(),
+    ]);
 
     // 1. Severity Distribution
     const severityMap = { CRITICAL: 0, HIGH: 0, MEDIUM: 0, LOW: 0, UNKNOWN: 0 };
@@ -1383,9 +1398,11 @@ export const getScanHistory = async (req, res) => {
       .limit(100)
       .lean();
 
-    // Fetch findings to compute scores per scan
+    // Fetch findings to compute scores per scan with minimal projection
     const scanIds = scans.map((s) => s._id);
-    const findings = await Finding.find({ scanId: { $in: scanIds } }).lean();
+    const findings = await Finding.find({ scanId: { $in: scanIds } })
+      .select('scanId status severity')
+      .lean();
 
     const findingsByScan = {};
     for (const f of findings) {
@@ -1464,8 +1481,8 @@ export const compareScans = async (req, res) => {
     const repoIds = userRepos.map((r) => r._id);
 
     const [baseScan, targetScan] = await Promise.all([
-      Scan.findOne({ _id: baseScanId, repositoryId: { $in: repoIds } }).populate('repositoryId', 'name owner url branch'),
-      Scan.findOne({ _id: targetScanId, repositoryId: { $in: repoIds } }).populate('repositoryId', 'name owner url branch'),
+      Scan.findOne({ _id: baseScanId, repositoryId: { $in: repoIds } }).populate('repositoryId', 'name owner url branch').lean(),
+      Scan.findOne({ _id: targetScanId, repositoryId: { $in: repoIds } }).populate('repositoryId', 'name owner url branch').lean(),
     ]);
 
     if (!baseScan || !targetScan) {

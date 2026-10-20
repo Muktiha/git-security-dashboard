@@ -1,5 +1,6 @@
 import express from 'express';
 import cors from 'cors';
+import compression from 'compression';
 import healthRoutes from './routes/health.routes.js';
 import authRoutes from './routes/auth.routes.js';
 import repositoryRoutes from './routes/repository.routes.js';
@@ -8,6 +9,9 @@ import findingRoutes from './routes/finding.routes.js';
 import notificationRoutes from './routes/notification.routes.js';
 
 const app = express();
+
+// High-performance gzip/deflate response compression
+app.use(compression());
 
 // Configure CORS
 app.use(cors({

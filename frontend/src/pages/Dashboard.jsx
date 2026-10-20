@@ -43,7 +43,6 @@ import {
 } from 'recharts';
 import { Link, useNavigate } from 'react-router-dom';
 import api from '../services/api';
-import { downloadExecutiveDashboardPDF } from '../utils/pdfGenerator';
 
 const formatTimeAgo = (dateStr) => {
   if (!dateStr) return 'Never';
@@ -237,11 +236,12 @@ export default function Dashboard() {
   };
 
   // Handle Executive PDF Download
-  const handleDownloadExecutiveSummary = () => {
+  const handleDownloadExecutiveSummary = async () => {
     try {
       setPdfDownloading(true);
       setPdfFeedback(null);
 
+      const { downloadExecutiveDashboardPDF } = await import('../utils/pdfGenerator');
       const filename = downloadExecutiveDashboardPDF({
         stats: data.stats,
         repositoryRiskTable: data.repositoryRiskTable,
@@ -289,19 +289,24 @@ export default function Dashboard() {
     if (active && payload && payload.length) {
       return (
         <div style={{
-          backgroundColor: '#1e293b',
+          backgroundColor: 'rgba(255, 255, 255, 0.96)',
+          backdropFilter: 'blur(8px)',
           border: '1px solid var(--border-color)',
-          borderRadius: '6px',
-          padding: '0.5rem 0.75rem',
+          borderRadius: '10px',
+          padding: '0.65rem 0.85rem',
           fontSize: '0.75rem',
-          color: '#f8fafc',
-          boxShadow: '0 4px 6px rgba(0, 0, 0, 0.4)',
+          color: 'var(--text-primary)',
+          boxShadow: 'var(--card-shadow-hover)',
         }}>
-          <p style={{ fontWeight: 600, marginBottom: '0.25rem' }}>{label || payload[0]?.name}</p>
+          <p style={{ fontWeight: 700, marginBottom: '0.35rem', color: 'var(--text-primary)', borderBottom: '1px solid var(--border-color)', paddingBottom: '0.25rem' }}>
+            {label || payload[0]?.name}
+          </p>
           {payload.map((item, idx) => (
-            <p key={idx} style={{ color: item.color || item.fill || '#38bdf8', margin: '0.15rem 0' }}>
-              {item.name}: <strong>{item.value}</strong>
-            </p>
+            <div key={idx} style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', margin: '0.25rem 0', fontWeight: 500 }}>
+              <span style={{ width: '8px', height: '8px', borderRadius: '50%', backgroundColor: item.color || item.fill || 'var(--accent-primary)' }} />
+              <span style={{ color: 'var(--text-secondary)' }}>{item.name}:</span>
+              <strong style={{ color: 'var(--text-primary)', marginLeft: 'auto' }}>{item.value}</strong>
+            </div>
           ))}
         </div>
       );
@@ -311,128 +316,229 @@ export default function Dashboard() {
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: '2rem' }}>
-      {/* 1. Command Center Top Header */}
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '1rem' }}>
-        <div>
-          <div style={{ display: 'flex', alignItems: 'center', gap: '0.65rem' }}>
-            <div style={{
-              width: '32px',
-              height: '32px',
-              borderRadius: '8px',
-              backgroundColor: 'var(--accent-cyan-glow)',
-              border: '1px solid var(--accent-cyan)',
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-              color: 'var(--accent-cyan)',
-            }}>
-              <Activity size={18} />
+      {/* 1. Command Center Hero Section */}
+      <div
+        className="card-prismatic"
+        style={{
+          position: 'relative',
+          overflow: 'hidden',
+          backgroundColor: 'var(--bg-card)',
+          borderRadius: '16px',
+          border: '1px solid var(--border-color)',
+          padding: '1.75rem 2rem',
+          boxShadow: 'var(--card-shadow)',
+        }}
+      >
+        {/* Subtle Ambient Radial Glow Orbs */}
+        <div
+          aria-hidden="true"
+          style={{
+            position: 'absolute',
+            top: '-50px',
+            right: '-30px',
+            width: '280px',
+            height: '280px',
+            borderRadius: '50%',
+            background: 'radial-gradient(circle, rgba(37, 99, 235, 0.12) 0%, rgba(124, 58, 237, 0.05) 50%, transparent 70%)',
+            pointerEvents: 'none',
+            filter: 'blur(24px)',
+          }}
+        />
+        <div
+          aria-hidden="true"
+          style={{
+            position: 'absolute',
+            bottom: '-40px',
+            left: '30%',
+            width: '240px',
+            height: '180px',
+            borderRadius: '50%',
+            background: 'radial-gradient(circle, rgba(6, 182, 212, 0.10) 0%, transparent 65%)',
+            pointerEvents: 'none',
+            filter: 'blur(20px)',
+          }}
+        />
+
+        <div style={{ position: 'relative', zIndex: 1, display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '1.5rem' }}>
+          <div style={{ maxWidth: '640px' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', marginBottom: '0.65rem' }}>
+              <div
+                style={{
+                  width: '38px',
+                  height: '38px',
+                  borderRadius: '10px',
+                  background: 'var(--gradient-primary)',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  color: '#ffffff',
+                  boxShadow: '0 4px 12px rgba(37, 99, 235, 0.3)',
+                }}
+              >
+                <Activity size={20} />
+              </div>
+
+              {/* Status pulse indicator */}
+              <div
+                style={{
+                  display: 'inline-flex',
+                  alignItems: 'center',
+                  gap: '0.45rem',
+                  padding: '0.25rem 0.65rem',
+                  borderRadius: '9999px',
+                  backgroundColor: 'rgba(16, 185, 129, 0.1)',
+                  border: '1px solid rgba(16, 185, 129, 0.25)',
+                  fontSize: '0.72rem',
+                  fontWeight: 600,
+                  color: '#059669',
+                }}
+              >
+                <span
+                  style={{
+                    width: '6px',
+                    height: '6px',
+                    borderRadius: '50%',
+                    backgroundColor: '#10B981',
+                    boxShadow: '0 0 6px #10B981',
+                  }}
+                />
+                <span>Engines Ready • Trivy & Gitleaks Active</span>
+              </div>
             </div>
-            <h1 style={{ fontSize: '1.75rem', fontWeight: 800, color: 'var(--text-primary)', letterSpacing: '-0.02em' }}>
+
+            <h1 style={{ fontSize: '1.85rem', fontWeight: 800, color: 'var(--text-primary)', letterSpacing: '-0.025em', margin: 0, lineHeight: 1.2 }}>
               DevSecOps Security Command Center
             </h1>
+            <p style={{ fontSize: '0.875rem', color: 'var(--text-secondary)', marginTop: '0.5rem', marginBottom: 0, lineHeight: 1.5 }}>
+              Continuous vulnerability orchestration, automated secret leak interception, and hygiene SLA telemetry for open-source government codebases.
+            </p>
           </div>
-          <p style={{ fontSize: '0.85rem', color: 'var(--text-secondary)', marginTop: '0.35rem' }}>
-            Continuous vulnerability orchestration, automated secret leak interception, and hygiene SLA telemetry for open-source government codebases.
-          </p>
-        </div>
 
-        {/* Quick Actions Header Toolbar */}
-        <div style={{ display: 'flex', alignItems: 'center', gap: '0.65rem', flexWrap: 'wrap' }}>
-          {/* Quick Scan Action */}
-          <button
-            onClick={() => setShowQuickScanModal(true)}
-            title="Trigger an automated security scan"
-            style={{
-              display: 'inline-flex',
-              alignItems: 'center',
-              gap: '0.45rem',
-              padding: '0.55rem 1rem',
-              backgroundColor: 'var(--accent-cyan)',
-              color: '#ffffff',
-              borderRadius: '8px',
-              fontWeight: 600,
-              fontSize: '0.825rem',
-              border: 'none',
-              cursor: 'pointer',
-              boxShadow: '0 2px 4px rgba(6, 182, 212, 0.25)',
-              transition: 'all 0.15s ease',
-            }}
-          >
-            <Play size={14} />
-            <span>Start Scan</span>
-          </button>
+          {/* Quick Actions Header Toolbar */}
+          <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', flexWrap: 'wrap' }}>
+            {/* Quick Scan Action (Primary Gradient) */}
+            <button
+              onClick={() => setShowQuickScanModal(true)}
+              title="Trigger an automated security scan"
+              className="btn-primary-gradient"
+              style={{
+                display: 'inline-flex',
+                alignItems: 'center',
+                gap: '0.5rem',
+                padding: '0.65rem 1.25rem',
+                borderRadius: '10px',
+                fontWeight: 600,
+                fontSize: '0.85rem',
+                border: 'none',
+                cursor: 'pointer',
+              }}
+            >
+              <Play size={15} />
+              <span>Start Scan</span>
+            </button>
 
-          {/* Add Repository Action */}
-          <button
-            onClick={() => setShowAddRepoModal(true)}
-            title="Register a new GitHub repository"
-            style={{
-              display: 'inline-flex',
-              alignItems: 'center',
-              gap: '0.45rem',
-              padding: '0.55rem 1rem',
-              backgroundColor: 'var(--bg-card)',
-              border: '1px solid var(--border-color)',
-              color: 'var(--text-primary)',
-              borderRadius: '8px',
-              fontWeight: 600,
-              fontSize: '0.825rem',
-              cursor: 'pointer',
-              transition: 'all 0.15s ease',
-            }}
-          >
-            <Plus size={14} color="var(--accent-cyan)" />
-            <span>Add Repository</span>
-          </button>
+            {/* Add Repository Action (Secondary Prismatic) */}
+            <button
+              onClick={() => setShowAddRepoModal(true)}
+              title="Register a new GitHub repository"
+              style={{
+                display: 'inline-flex',
+                alignItems: 'center',
+                gap: '0.5rem',
+                padding: '0.65rem 1.15rem',
+                backgroundColor: '#ffffff',
+                border: '1px solid var(--border-color)',
+                color: 'var(--text-primary)',
+                borderRadius: '10px',
+                fontWeight: 600,
+                fontSize: '0.85rem',
+                cursor: 'pointer',
+                boxShadow: '0 1px 3px rgba(0, 0, 0, 0.04)',
+                transition: 'all 0.2s cubic-bezier(0.16, 1, 0.3, 1)',
+              }}
+              onMouseEnter={(e) => {
+                e.currentTarget.style.borderColor = 'var(--accent-primary)';
+                e.currentTarget.style.boxShadow = '0 4px 12px rgba(37, 99, 235, 0.12)';
+              }}
+              onMouseLeave={(e) => {
+                e.currentTarget.style.borderColor = 'var(--border-color)';
+                e.currentTarget.style.boxShadow = '0 1px 3px rgba(0, 0, 0, 0.04)';
+              }}
+            >
+              <Plus size={15} color="var(--accent-primary)" />
+              <span>Add Repository</span>
+            </button>
 
-          {/* View Critical Findings */}
-          <Link
-            to="/findings?severity=CRITICAL&status=OPEN"
-            style={{
-              display: 'inline-flex',
-              alignItems: 'center',
-              gap: '0.45rem',
-              padding: '0.55rem 1rem',
-              backgroundColor: 'rgba(239, 68, 68, 0.12)',
-              border: '1px solid rgba(239, 68, 68, 0.35)',
-              color: 'var(--severity-critical)',
-              borderRadius: '8px',
-              fontWeight: 600,
-              fontSize: '0.825rem',
-              textDecoration: 'none',
-            }}
-          >
-            <ShieldAlert size={14} />
-            <span>View Critical ({data.stats?.openCriticalFindings || 0})</span>
-          </Link>
+            {/* View Critical Findings */}
+            <Link
+              to="/findings?severity=CRITICAL&status=OPEN"
+              style={{
+                display: 'inline-flex',
+                alignItems: 'center',
+                gap: '0.5rem',
+                padding: '0.65rem 1.15rem',
+                backgroundColor: 'rgba(251, 113, 133, 0.08)',
+                border: '1px solid rgba(251, 113, 133, 0.25)',
+                color: '#E11D48',
+                borderRadius: '10px',
+                fontWeight: 600,
+                fontSize: '0.85rem',
+                textDecoration: 'none',
+                transition: 'all 0.2s cubic-bezier(0.16, 1, 0.3, 1)',
+              }}
+              onMouseEnter={(e) => {
+                e.currentTarget.style.backgroundColor = 'rgba(251, 113, 133, 0.14)';
+                e.currentTarget.style.transform = 'translateY(-1px)';
+              }}
+              onMouseLeave={(e) => {
+                e.currentTarget.style.backgroundColor = 'rgba(251, 113, 133, 0.08)';
+                e.currentTarget.style.transform = 'translateY(0)';
+              }}
+            >
+              <ShieldAlert size={15} />
+              <span>Critical ({data.stats?.openCriticalFindings || 0})</span>
+            </Link>
 
-          {/* Download Security Summary */}
-          <button
-            onClick={handleDownloadExecutiveSummary}
-            disabled={pdfDownloading || loading}
-            title="Export DevSecOps Executive Security Summary PDF"
-            style={{
-              display: 'inline-flex',
-              alignItems: 'center',
-              gap: '0.45rem',
-              padding: '0.55rem 1rem',
-              backgroundColor: 'var(--bg-secondary)',
-              border: '1px solid var(--border-color)',
-              color: 'var(--text-secondary)',
-              borderRadius: '8px',
-              fontWeight: 600,
-              fontSize: '0.825rem',
-              cursor: pdfDownloading || loading ? 'not-allowed' : 'pointer',
-            }}
-          >
-            {pdfDownloading ? (
-              <RefreshCw size={14} style={{ animation: 'spin 1s linear infinite' }} />
-            ) : (
-              <FileDown size={14} />
-            )}
-            <span>Export Executive PDF</span>
-          </button>
+            {/* Download Security Summary */}
+            <button
+              onClick={handleDownloadExecutiveSummary}
+              disabled={pdfDownloading || loading}
+              title="Export DevSecOps Executive Security Summary PDF"
+              style={{
+                display: 'inline-flex',
+                alignItems: 'center',
+                gap: '0.5rem',
+                padding: '0.65rem 1.15rem',
+                backgroundColor: 'var(--bg-secondary)',
+                border: '1px solid var(--border-color)',
+                color: 'var(--text-secondary)',
+                borderRadius: '10px',
+                fontWeight: 600,
+                fontSize: '0.85rem',
+                cursor: pdfDownloading || loading ? 'not-allowed' : 'pointer',
+                transition: 'all 0.2s cubic-bezier(0.16, 1, 0.3, 1)',
+              }}
+              onMouseEnter={(e) => {
+                if (!pdfDownloading && !loading) {
+                  e.currentTarget.style.backgroundColor = 'var(--bg-card)';
+                  e.currentTarget.style.color = 'var(--text-primary)';
+                }
+              }}
+              onMouseLeave={(e) => {
+                if (!pdfDownloading && !loading) {
+                  e.currentTarget.style.backgroundColor = 'var(--bg-secondary)';
+                  e.currentTarget.style.color = 'var(--text-secondary)';
+                }
+              }}
+            >
+              {pdfDownloading ? (
+                <RefreshCw size={15} style={{ animation: 'spin 1s linear infinite' }} />
+              ) : (
+                <FileDown size={15} />
+              )}
+              <span>Export PDF</span>
+            </button>
+          </div>
         </div>
       </div>
 
@@ -446,16 +552,16 @@ export default function Dashboard() {
           borderRadius: '8px',
           fontSize: '0.85rem',
           backgroundColor: scanBannerMsg.type === 'success' 
-            ? 'rgba(16, 185, 129, 0.15)' 
+            ? 'var(--status-success-bg)' 
             : scanBannerMsg.type === 'error' 
-            ? 'rgba(239, 68, 68, 0.15)' 
-            : 'rgba(14, 165, 233, 0.15)',
+            ? 'var(--severity-critical-bg)' 
+            : 'var(--badge-info-bg)',
           border: `1px solid ${
             scanBannerMsg.type === 'success' 
-              ? 'rgba(16, 185, 129, 0.3)' 
+              ? 'var(--status-success-border)' 
               : scanBannerMsg.type === 'error' 
-              ? 'rgba(239, 68, 68, 0.3)' 
-              : 'rgba(14, 165, 233, 0.3)'
+              ? 'var(--severity-critical-border)' 
+              : 'var(--badge-info-border)'
           }`,
           color: scanBannerMsg.type === 'success' 
             ? 'var(--status-success)' 
@@ -476,8 +582,8 @@ export default function Dashboard() {
           padding: '0.75rem 1.25rem',
           borderRadius: '8px',
           fontSize: '0.85rem',
-          backgroundColor: pdfFeedback.type === 'success' ? 'rgba(16, 185, 129, 0.15)' : 'rgba(239, 68, 68, 0.15)',
-          border: `1px solid ${pdfFeedback.type === 'success' ? 'rgba(16, 185, 129, 0.3)' : 'rgba(239, 68, 68, 0.3)'}`,
+          backgroundColor: pdfFeedback.type === 'success' ? 'var(--status-success-bg)' : 'var(--severity-critical-bg)',
+          border: `1px solid ${pdfFeedback.type === 'success' ? 'var(--status-success-border)' : 'var(--severity-critical-border)'}`,
           color: pdfFeedback.type === 'success' ? 'var(--status-success)' : 'var(--severity-critical)',
         }}>
           {pdfFeedback.type === 'success' ? <CheckCircle2 size={18} /> : <AlertTriangle size={18} />}
@@ -634,153 +740,255 @@ export default function Dashboard() {
       <div style={{
         display: 'grid',
         gridTemplateColumns: 'repeat(auto-fit, minmax(210px, 1fr))',
-        gap: '1rem',
+        gap: '1.25rem',
       }}>
         {/* Card 1: Health Score */}
-        <div style={{
-          backgroundColor: 'var(--bg-card)',
-          border: '1px solid var(--border-color)',
-          borderRadius: '10px',
-          padding: '1.25rem',
-          display: 'flex',
-          flexDirection: 'column',
-          justifyContent: 'space-between',
-        }}>
+        <div
+          className="card-prismatic"
+          style={{
+            backgroundColor: 'var(--bg-card)',
+            border: '1px solid var(--border-color)',
+            borderRadius: '14px',
+            padding: '1.35rem',
+            display: 'flex',
+            flexDirection: 'column',
+            justifyContent: 'space-between',
+            boxShadow: 'var(--card-shadow)',
+          }}
+        >
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-            <span style={{ fontSize: '0.78rem', fontWeight: 600, color: 'var(--text-secondary)' }}>
+            <span style={{ fontSize: '0.8rem', fontWeight: 600, color: 'var(--text-secondary)' }}>
               Security Health Score
             </span>
-            <ShieldCheck size={18} color="var(--accent-cyan)" />
+            <div
+              style={{
+                width: '36px',
+                height: '36px',
+                borderRadius: '10px',
+                background: 'var(--gradient-teal)',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                color: '#ffffff',
+                boxShadow: 'var(--glow-teal)',
+              }}
+            >
+              <ShieldCheck size={18} />
+            </div>
           </div>
-          <div style={{ marginTop: '0.65rem', display: 'flex', alignItems: 'baseline', gap: '0.5rem' }}>
-            <span style={{ fontSize: '2rem', fontWeight: 800, color: 'var(--text-primary)' }}>
+          <div style={{ marginTop: '0.85rem', display: 'flex', alignItems: 'baseline', gap: '0.65rem' }}>
+            <span style={{ fontSize: '2.15rem', fontWeight: 800, color: 'var(--text-primary)', letterSpacing: '-0.02em' }}>
               {loading ? '-' : data.stats?.healthScore || '100%'}
             </span>
             <span style={{
               fontSize: '0.75rem',
               fontWeight: 700,
-              padding: '0.15rem 0.45rem',
-              borderRadius: '4px',
-              backgroundColor: (data.stats?.healthScoreNumber ?? 100) >= 90 ? 'rgba(16, 185, 129, 0.15)' : 'rgba(239, 68, 68, 0.15)',
-              color: (data.stats?.healthScoreNumber ?? 100) >= 90 ? 'var(--status-success)' : 'var(--severity-critical)',
+              padding: '0.2rem 0.5rem',
+              borderRadius: '6px',
+              backgroundColor: (data.stats?.healthScoreNumber ?? 100) >= 90 ? 'rgba(16, 185, 129, 0.1)' : 'rgba(251, 113, 133, 0.12)',
+              border: `1px solid ${(data.stats?.healthScoreNumber ?? 100) >= 90 ? 'rgba(16, 185, 129, 0.3)' : 'rgba(251, 113, 133, 0.3)'}`,
+              color: (data.stats?.healthScoreNumber ?? 100) >= 90 ? '#059669' : '#E11D48',
             }}>
               Grade {data.stats?.healthGrade || 'A'}
             </span>
           </div>
-          <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)', marginTop: '0.35rem' }}>
+          <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)', marginTop: '0.5rem', fontWeight: 500 }}>
             {data.stats?.healthLabel || 'Clean posture'}
           </div>
         </div>
 
         {/* Card 2: Open Critical Findings */}
-        <div style={{
-          backgroundColor: 'var(--bg-card)',
-          border: '1px solid var(--border-color)',
-          borderRadius: '10px',
-          padding: '1.25rem',
-          display: 'flex',
-          flexDirection: 'column',
-          justifyContent: 'space-between',
-        }}>
+        <div
+          className="card-prismatic"
+          style={{
+            backgroundColor: 'var(--bg-card)',
+            border: '1px solid var(--border-color)',
+            borderRadius: '14px',
+            padding: '1.35rem',
+            display: 'flex',
+            flexDirection: 'column',
+            justifyContent: 'space-between',
+            boxShadow: 'var(--card-shadow)',
+          }}
+        >
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-            <span style={{ fontSize: '0.78rem', fontWeight: 600, color: 'var(--severity-critical)' }}>
+            <span style={{ fontSize: '0.8rem', fontWeight: 600, color: '#E11D48' }}>
               Open Critical Findings
             </span>
-            <ShieldAlert size={18} color="var(--severity-critical)" />
+            <div
+              style={{
+                width: '36px',
+                height: '36px',
+                borderRadius: '10px',
+                background: 'var(--gradient-warm)',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                color: '#ffffff',
+                boxShadow: 'var(--glow-warm)',
+              }}
+            >
+              <ShieldAlert size={18} />
+            </div>
           </div>
-          <div style={{ marginTop: '0.65rem', display: 'flex', alignItems: 'baseline', gap: '0.5rem' }}>
-            <span style={{ fontSize: '2rem', fontWeight: 800, color: 'var(--severity-critical)' }}>
+          <div style={{ marginTop: '0.85rem', display: 'flex', alignItems: 'baseline', gap: '0.65rem' }}>
+            <span style={{ fontSize: '2.15rem', fontWeight: 800, color: '#E11D48', letterSpacing: '-0.02em' }}>
               {loading ? '-' : data.stats?.openCriticalFindings ?? 0}
             </span>
-            <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>urgent</span>
+            <span style={{
+              fontSize: '0.72rem',
+              fontWeight: 700,
+              padding: '0.15rem 0.45rem',
+              borderRadius: '6px',
+              backgroundColor: 'rgba(251, 113, 133, 0.12)',
+              color: '#E11D48',
+              textTransform: 'uppercase',
+              letterSpacing: '0.04em',
+            }}>
+              Urgent
+            </span>
           </div>
-          <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)', marginTop: '0.35rem' }}>
+          <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)', marginTop: '0.5rem', fontWeight: 500 }}>
             {data.stats?.exposedSecrets ?? 0} exposed secrets • {data.stats?.criticalCVEs ?? 0} critical CVEs
           </div>
         </div>
 
         {/* Card 3: Total Unresolved Findings */}
-        <div style={{
-          backgroundColor: 'var(--bg-card)',
-          border: '1px solid var(--border-color)',
-          borderRadius: '10px',
-          padding: '1.25rem',
-          display: 'flex',
-          flexDirection: 'column',
-          justifyContent: 'space-between',
-        }}>
+        <div
+          className="card-prismatic"
+          style={{
+            backgroundColor: 'var(--bg-card)',
+            border: '1px solid var(--border-color)',
+            borderRadius: '14px',
+            padding: '1.35rem',
+            display: 'flex',
+            flexDirection: 'column',
+            justifyContent: 'space-between',
+            boxShadow: 'var(--card-shadow)',
+          }}
+        >
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-            <span style={{ fontSize: '0.78rem', fontWeight: 600, color: 'var(--severity-high)' }}>
+            <span style={{ fontSize: '0.8rem', fontWeight: 600, color: 'var(--text-secondary)' }}>
               Total Unresolved Issues
             </span>
-            <AlertTriangle size={18} color="var(--severity-high)" />
+            <div
+              style={{
+                width: '36px',
+                height: '36px',
+                borderRadius: '10px',
+                background: 'var(--gradient-violet)',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                color: '#ffffff',
+                boxShadow: 'var(--glow-violet)',
+              }}
+            >
+              <AlertTriangle size={18} />
+            </div>
           </div>
-          <div style={{ marginTop: '0.65rem', display: 'flex', alignItems: 'baseline', gap: '0.5rem' }}>
-            <span style={{ fontSize: '2rem', fontWeight: 800, color: 'var(--text-primary)' }}>
+          <div style={{ marginTop: '0.85rem', display: 'flex', alignItems: 'baseline', gap: '0.65rem' }}>
+            <span style={{ fontSize: '2.15rem', fontWeight: 800, color: 'var(--text-primary)', letterSpacing: '-0.02em' }}>
               {loading ? '-' : data.stats?.unresolvedFindings ?? 0}
             </span>
-            <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>open / in progress</span>
+            <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)', fontWeight: 500 }}>open / in progress</span>
           </div>
-          <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)', marginTop: '0.35rem' }}>
+          <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)', marginTop: '0.5rem', fontWeight: 500 }}>
             Across all active repository scans
           </div>
         </div>
 
         {/* Card 4: Resolved Findings */}
-        <div style={{
-          backgroundColor: 'var(--bg-card)',
-          border: '1px solid var(--border-color)',
-          borderRadius: '10px',
-          padding: '1.25rem',
-          display: 'flex',
-          flexDirection: 'column',
-          justifyContent: 'space-between',
-        }}>
+        <div
+          className="card-prismatic"
+          style={{
+            backgroundColor: 'var(--bg-card)',
+            border: '1px solid var(--border-color)',
+            borderRadius: '14px',
+            padding: '1.35rem',
+            display: 'flex',
+            flexDirection: 'column',
+            justifyContent: 'space-between',
+            boxShadow: 'var(--card-shadow)',
+          }}
+        >
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-            <span style={{ fontSize: '0.78rem', fontWeight: 600, color: 'var(--status-success)' }}>
+            <span style={{ fontSize: '0.8rem', fontWeight: 600, color: 'var(--text-secondary)' }}>
               Resolved Vulnerabilities
             </span>
-            <CheckCircle2 size={18} color="var(--status-success)" />
+            <div
+              style={{
+                width: '36px',
+                height: '36px',
+                borderRadius: '10px',
+                background: 'linear-gradient(135deg, #10B981 0%, #14B8A6 100%)',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                color: '#ffffff',
+                boxShadow: '0 4px 12px rgba(16, 185, 129, 0.25)',
+              }}
+            >
+              <CheckCircle2 size={18} />
+            </div>
           </div>
-          <div style={{ marginTop: '0.65rem', display: 'flex', alignItems: 'baseline', gap: '0.5rem' }}>
-            <span style={{ fontSize: '2rem', fontWeight: 800, color: 'var(--status-success)' }}>
+          <div style={{ marginTop: '0.85rem', display: 'flex', alignItems: 'baseline', gap: '0.65rem' }}>
+            <span style={{ fontSize: '2.15rem', fontWeight: 800, color: '#059669', letterSpacing: '-0.02em' }}>
               {loading ? '-' : data.stats?.resolvedFindings ?? 0}
             </span>
-            <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>
+            <span style={{ fontSize: '0.75rem', color: '#059669', fontWeight: 600 }}>
               ({(data.stats?.totalFindings || 0) > 0 ? Math.round(((data.stats?.resolvedFindings || 0) / data.stats?.totalFindings) * 100) : 100}% rate)
             </span>
           </div>
-          <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)', marginTop: '0.35rem' }}>
+          <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)', marginTop: '0.5rem', fontWeight: 500 }}>
             Patched credentials & dependencies
           </div>
         </div>
 
         {/* Card 5: Repositories & Scan Hygiene */}
-        <div style={{
-          backgroundColor: 'var(--bg-card)',
-          border: '1px solid var(--border-color)',
-          borderRadius: '10px',
-          padding: '1.25rem',
-          display: 'flex',
-          flexDirection: 'column',
-          justifyContent: 'space-between',
-        }}>
+        <div
+          className="card-prismatic"
+          style={{
+            backgroundColor: 'var(--bg-card)',
+            border: '1px solid var(--border-color)',
+            borderRadius: '14px',
+            padding: '1.35rem',
+            display: 'flex',
+            flexDirection: 'column',
+            justifyContent: 'space-between',
+            boxShadow: 'var(--card-shadow)',
+          }}
+        >
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-            <span style={{ fontSize: '0.78rem', fontWeight: 600, color: 'var(--text-secondary)' }}>
+            <span style={{ fontSize: '0.8rem', fontWeight: 600, color: 'var(--text-secondary)' }}>
               Scan Hygiene & Freshness
             </span>
-            <FolderGit2 size={18} color="var(--accent-cyan)" />
+            <div
+              style={{
+                width: '36px',
+                height: '36px',
+                borderRadius: '10px',
+                background: 'var(--gradient-primary)',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                color: '#ffffff',
+                boxShadow: 'var(--glow-primary)',
+              }}
+            >
+              <FolderGit2 size={18} />
+            </div>
           </div>
-          <div style={{ marginTop: '0.65rem', display: 'flex', alignItems: 'baseline', gap: '0.5rem' }}>
-            <span style={{ fontSize: '2rem', fontWeight: 800, color: 'var(--text-primary)' }}>
+          <div style={{ marginTop: '0.85rem', display: 'flex', alignItems: 'baseline', gap: '0.65rem' }}>
+            <span style={{ fontSize: '2.15rem', fontWeight: 800, color: 'var(--text-primary)', letterSpacing: '-0.02em' }}>
               {loading ? '-' : data.stats?.totalRepositories ?? 0}
             </span>
-            <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>repositories</span>
+            <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)', fontWeight: 500 }}>repositories</span>
           </div>
-          <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)', marginTop: '0.35rem', display: 'flex', gap: '0.5rem' }}>
-            <span style={{ color: 'var(--status-success)', fontWeight: 600 }}>{data.stats?.freshness?.fresh || 0} Fresh</span>
+          <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)', marginTop: '0.5rem', display: 'flex', gap: '0.5rem', fontWeight: 500 }}>
+            <span style={{ color: '#059669', fontWeight: 600 }}>{data.stats?.freshness?.fresh || 0} Fresh</span>
             <span>•</span>
-            <span style={{ color: data.stats?.freshness?.stale > 0 ? 'var(--severity-high)' : 'var(--text-muted)' }}>{data.stats?.freshness?.stale || 0} Stale</span>
+            <span style={{ color: data.stats?.freshness?.stale > 0 ? '#EA580C' : 'var(--text-muted)' }}>{data.stats?.freshness?.stale || 0} Stale</span>
             <span>•</span>
             <span>{data.stats?.freshness?.neverScanned || 0} Unscanned</span>
           </div>
@@ -828,9 +1036,9 @@ export default function Dashboard() {
                     backgroundColor: 'var(--bg-secondary)',
                     border: `1px solid ${
                       item.priority === 'CRITICAL' 
-                        ? 'rgba(239, 68, 68, 0.35)' 
+                        ? 'var(--severity-critical-border)' 
                         : item.priority === 'HIGH' 
-                        ? 'rgba(249, 115, 22, 0.35)' 
+                        ? 'var(--severity-high-border)' 
                         : 'var(--border-color)'
                     }`,
                     display: 'flex',
@@ -846,8 +1054,9 @@ export default function Dashboard() {
                         borderRadius: '4px',
                         fontSize: '0.65rem',
                         fontWeight: 700,
-                        backgroundColor: item.priority === 'CRITICAL' ? 'rgba(239, 68, 68, 0.2)' : item.priority === 'HIGH' ? 'rgba(249, 115, 22, 0.2)' : 'rgba(14, 165, 233, 0.2)',
-                        color: item.priority === 'CRITICAL' ? 'var(--severity-critical)' : item.priority === 'HIGH' ? 'var(--severity-high)' : 'var(--accent-cyan)',
+                        backgroundColor: item.priority === 'CRITICAL' ? 'var(--severity-critical-bg)' : item.priority === 'HIGH' ? 'var(--severity-high-bg)' : 'var(--badge-info-bg)',
+                        border: `1px solid ${item.priority === 'CRITICAL' ? 'var(--severity-critical-border)' : item.priority === 'HIGH' ? 'var(--severity-high-border)' : 'var(--badge-info-border)'}`,
+                        color: item.priority === 'CRITICAL' ? 'var(--severity-critical)' : item.priority === 'HIGH' ? 'var(--severity-high)' : 'var(--badge-info-text)',
                       }}>
                         {item.priority}
                       </span>
@@ -973,22 +1182,22 @@ export default function Dashboard() {
 
               {/* 3 Metric Pills */}
               <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: '0.75rem' }}>
-                <div style={{ padding: '0.75rem', backgroundColor: 'rgba(239, 68, 68, 0.08)', border: '1px solid rgba(239, 68, 68, 0.25)', borderRadius: '8px', textAlign: 'center' }}>
+                <div style={{ padding: '0.75rem', backgroundColor: 'var(--severity-critical-bg)', border: '1px solid var(--severity-critical-border)', borderRadius: '8px', textAlign: 'center' }}>
                   <div style={{ fontSize: '1.25rem', fontWeight: 800, color: 'var(--severity-critical)' }}>
                     {data.latestScanComparison.newCount}
                   </div>
                   <div style={{ fontSize: '0.7rem', color: 'var(--text-muted)', fontWeight: 600 }}>Newly Detected</div>
                 </div>
 
-                <div style={{ padding: '0.75rem', backgroundColor: 'rgba(16, 185, 129, 0.08)', border: '1px solid rgba(16, 185, 129, 0.25)', borderRadius: '8px', textAlign: 'center' }}>
+                <div style={{ padding: '0.75rem', backgroundColor: 'var(--status-success-bg)', border: '1px solid var(--status-success-border)', borderRadius: '8px', textAlign: 'center' }}>
                   <div style={{ fontSize: '1.25rem', fontWeight: 800, color: 'var(--status-success)' }}>
                     {data.latestScanComparison.fixedCount}
                   </div>
                   <div style={{ fontSize: '0.7rem', color: 'var(--text-muted)', fontWeight: 600 }}>Fixed / Patched</div>
                 </div>
 
-                <div style={{ padding: '0.75rem', backgroundColor: 'rgba(234, 179, 8, 0.08)', border: '1px solid rgba(234, 179, 8, 0.25)', borderRadius: '8px', textAlign: 'center' }}>
-                  <div style={{ fontSize: '1.25rem', fontWeight: 800, color: '#eab308' }}>
+                <div style={{ padding: '0.75rem', backgroundColor: 'var(--severity-medium-bg)', border: '1px solid var(--severity-medium-border)', borderRadius: '8px', textAlign: 'center' }}>
+                  <div style={{ fontSize: '1.25rem', fontWeight: 800, color: 'var(--severity-medium)' }}>
                     {data.latestScanComparison.persistentCount}
                   </div>
                   <div style={{ fontSize: '0.7rem', color: 'var(--text-muted)', fontWeight: 600 }}>Persistent</div>
@@ -1025,28 +1234,57 @@ export default function Dashboard() {
       {/* 5. Security Trend Visualizations (Recharts) */}
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(340px, 1fr))', gap: '1.5rem' }}>
         {/* Trend 1: Findings Over Time */}
-        <div style={{
-          backgroundColor: 'var(--bg-card)',
-          border: '1px solid var(--border-color)',
-          borderRadius: '12px',
-          padding: '1.5rem',
-        }}>
-          <h3 style={{ fontSize: '0.95rem', fontWeight: 700, color: 'var(--text-primary)', marginBottom: '0.2rem' }}>
-            Findings Progression Over Time
-          </h3>
-          <p style={{ fontSize: '0.75rem', color: 'var(--text-muted)', marginBottom: '1.25rem' }}>
-            Chronological volume of total findings detected in recent scan runs.
-          </p>
+        <div
+          className="card-prismatic"
+          style={{
+            backgroundColor: 'var(--bg-card)',
+            border: '1px solid var(--border-color)',
+            borderRadius: '14px',
+            padding: '1.5rem',
+            boxShadow: 'var(--card-shadow)',
+          }}
+        >
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '1.25rem' }}>
+            <div>
+              <h3 style={{ fontSize: '0.95rem', fontWeight: 700, color: 'var(--text-primary)', margin: 0 }}>
+                Findings Progression Over Time
+              </h3>
+              <p style={{ fontSize: '0.75rem', color: 'var(--text-muted)', marginTop: '0.25rem', marginBottom: 0 }}>
+                Chronological volume of total findings detected in recent scan runs.
+              </p>
+            </div>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', fontSize: '0.7rem', fontWeight: 600 }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '0.3rem', color: '#2563EB' }}>
+                <span style={{ width: '8px', height: '8px', borderRadius: '50%', backgroundColor: '#2563EB' }} />
+                <span>Total</span>
+              </div>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '0.3rem', color: '#E11D48' }}>
+                <span style={{ width: '8px', height: '8px', borderRadius: '50%', backgroundColor: '#E11D48' }} />
+                <span>Critical</span>
+              </div>
+            </div>
+          </div>
+
           <div style={{ height: '220px' }}>
             {(data.trends?.scanTrends || []).length > 0 ? (
               <ResponsiveContainer width="100%" height="100%">
                 <LineChart data={data.trends.scanTrends} margin={{ top: 5, right: 10, left: -25, bottom: 0 }}>
-                  <CartesianGrid strokeDasharray="3 3" stroke="#334155" />
-                  <XAxis dataKey="date" stroke="#94a3b8" fontSize={11} />
-                  <YAxis stroke="#94a3b8" fontSize={11} allowDecimals={false} />
+                  <defs>
+                    <linearGradient id="linePrimaryGrad" x1="0" y1="0" x2="1" y2="0">
+                      <stop offset="0%" stopColor="#2563EB" />
+                      <stop offset="100%" stopColor="#7C3AED" />
+                    </linearGradient>
+                    <linearGradient id="lineWarmGrad" x1="0" y1="0" x2="1" y2="0">
+                      <stop offset="0%" stopColor="#FB7185" />
+                      <stop offset="100%" stopColor="#E11D48" />
+                    </linearGradient>
+                  </defs>
+                  <CartesianGrid strokeDasharray="3 3" stroke="#E5EAF5" vertical={false} />
+                  <XAxis dataKey="date" stroke="#94A3B8" fontSize={11} tickLine={false} />
+                  <YAxis stroke="#94A3B8" fontSize={11} allowDecimals={false} tickLine={false} axisLine={false} />
                   <Tooltip content={<CustomTooltip />} />
-                  <Line type="monotone" dataKey="totalFindings" name="Total Findings" stroke="#0ea5e9" strokeWidth={2} dot={{ r: 3 }} />
-                  <Line type="monotone" dataKey="critical" name="Critical" stroke="#ef4444" strokeWidth={2} dot={{ r: 3 }} />
+                  <Line type="monotone" dataKey="totalFindings" name="Total Findings" stroke="url(#linePrimaryGrad)" strokeWidth={2.5} dot={{ r: 3, fill: '#2563EB', strokeWidth: 1, stroke: '#ffffff' }} activeDot={{ r: 5 }} />
+                  <Line type="monotone" dataKey="critical" name="Critical" stroke="url(#lineWarmGrad)" strokeWidth={2.5} dot={{ r: 3, fill: '#E11D48', strokeWidth: 1, stroke: '#ffffff' }} activeDot={{ r: 5 }} />
                 </LineChart>
               </ResponsiveContainer>
             ) : (
@@ -1058,30 +1296,56 @@ export default function Dashboard() {
         </div>
 
         {/* Trend 2: Active Severity Distribution */}
-        <div style={{
-          backgroundColor: 'var(--bg-card)',
-          border: '1px solid var(--border-color)',
-          borderRadius: '12px',
-          padding: '1.5rem',
-        }}>
-          <h3 style={{ fontSize: '0.95rem', fontWeight: 700, color: 'var(--text-primary)', marginBottom: '0.2rem' }}>
+        <div
+          className="card-prismatic"
+          style={{
+            backgroundColor: 'var(--bg-card)',
+            border: '1px solid var(--border-color)',
+            borderRadius: '14px',
+            padding: '1.5rem',
+            boxShadow: 'var(--card-shadow)',
+          }}
+        >
+          <h3 style={{ fontSize: '0.95rem', fontWeight: 700, color: 'var(--text-primary)', margin: 0 }}>
             Active Severity Breakdown
           </h3>
-          <p style={{ fontSize: '0.75rem', color: 'var(--text-muted)', marginBottom: '1.25rem' }}>
+          <p style={{ fontSize: '0.75rem', color: 'var(--text-muted)', marginTop: '0.25rem', marginBottom: '1.25rem' }}>
             Impact distribution across unresolved vulnerabilities & secrets.
           </p>
           <div style={{ height: '220px' }}>
             {(data.trends?.severityDistribution || []).length > 0 ? (
               <ResponsiveContainer width="100%" height="100%">
                 <BarChart data={data.trends.severityDistribution} margin={{ top: 5, right: 10, left: -25, bottom: 0 }}>
-                  <CartesianGrid strokeDasharray="3 3" stroke="#334155" />
-                  <XAxis dataKey="name" stroke="#94a3b8" fontSize={11} />
-                  <YAxis stroke="#94a3b8" fontSize={11} allowDecimals={false} />
+                  <defs>
+                    <linearGradient id="barGrad-CRITICAL" x1="0" y1="0" x2="0" y2="1">
+                      <stop offset="0%" stopColor="#FB7185" />
+                      <stop offset="100%" stopColor="#E11D48" />
+                    </linearGradient>
+                    <linearGradient id="barGrad-HIGH" x1="0" y1="0" x2="0" y2="1">
+                      <stop offset="0%" stopColor="#F97316" />
+                      <stop offset="100%" stopColor="#EA580C" />
+                    </linearGradient>
+                    <linearGradient id="barGrad-MEDIUM" x1="0" y1="0" x2="0" y2="1">
+                      <stop offset="0%" stopColor="#FBBF24" />
+                      <stop offset="100%" stopColor="#D97706" />
+                    </linearGradient>
+                    <linearGradient id="barGrad-LOW" x1="0" y1="0" x2="0" y2="1">
+                      <stop offset="0%" stopColor="#06B6D4" />
+                      <stop offset="100%" stopColor="#2563EB" />
+                    </linearGradient>
+                  </defs>
+                  <CartesianGrid strokeDasharray="3 3" stroke="#E5EAF5" vertical={false} />
+                  <XAxis dataKey="name" stroke="#94A3B8" fontSize={11} tickLine={false} />
+                  <YAxis stroke="#94A3B8" fontSize={11} allowDecimals={false} tickLine={false} axisLine={false} />
                   <Tooltip content={<CustomTooltip />} />
-                  <Bar dataKey="count" radius={[4, 4, 0, 0]}>
-                    {(data.trends.severityDistribution || []).map((entry, idx) => (
-                      <Cell key={`cell-${idx}`} fill={entry.fill} />
-                    ))}
+                  <Bar dataKey="count" radius={[6, 6, 0, 0]}>
+                    {(data.trends.severityDistribution || []).map((entry, idx) => {
+                      const gradId = entry.name === 'CRITICAL' ? 'url(#barGrad-CRITICAL)'
+                        : entry.name === 'HIGH' ? 'url(#barGrad-HIGH)'
+                        : entry.name === 'MEDIUM' ? 'url(#barGrad-MEDIUM)'
+                        : 'url(#barGrad-LOW)';
+                      return <Cell key={`cell-${idx}`} fill={gradId} />;
+                    })}
                   </Bar>
                 </BarChart>
               </ResponsiveContainer>
@@ -1094,30 +1358,56 @@ export default function Dashboard() {
         </div>
 
         {/* Trend 3: Lifecycle Posture */}
-        <div style={{
-          backgroundColor: 'var(--bg-card)',
-          border: '1px solid var(--border-color)',
-          borderRadius: '12px',
-          padding: '1.5rem',
-        }}>
-          <h3 style={{ fontSize: '0.95rem', fontWeight: 700, color: 'var(--text-primary)', marginBottom: '0.2rem' }}>
+        <div
+          className="card-prismatic"
+          style={{
+            backgroundColor: 'var(--bg-card)',
+            border: '1px solid var(--border-color)',
+            borderRadius: '14px',
+            padding: '1.5rem',
+            boxShadow: 'var(--card-shadow)',
+          }}
+        >
+          <h3 style={{ fontSize: '0.95rem', fontWeight: 700, color: 'var(--text-primary)', margin: 0 }}>
             Lifecycle Remediation Posture
           </h3>
-          <p style={{ fontSize: '0.75rem', color: 'var(--text-muted)', marginBottom: '1.25rem' }}>
+          <p style={{ fontSize: '0.75rem', color: 'var(--text-muted)', marginTop: '0.25rem', marginBottom: '1.25rem' }}>
             Volume of findings active, in progress, resolved, or accepted risk.
           </p>
           <div style={{ height: '220px' }}>
             {(data.trends?.newVsResolvedTrends || []).length > 0 ? (
               <ResponsiveContainer width="100%" height="100%">
                 <BarChart data={data.trends.newVsResolvedTrends} layout="vertical" margin={{ top: 5, right: 10, left: 20, bottom: 0 }}>
-                  <CartesianGrid strokeDasharray="3 3" stroke="#334155" />
-                  <XAxis type="number" stroke="#94a3b8" fontSize={11} allowDecimals={false} />
-                  <YAxis dataKey="name" type="category" stroke="#94a3b8" fontSize={11} width={80} />
+                  <defs>
+                    <linearGradient id="barHoriz-Open" x1="0" y1="0" x2="1" y2="0">
+                      <stop offset="0%" stopColor="#FB7185" />
+                      <stop offset="100%" stopColor="#E11D48" />
+                    </linearGradient>
+                    <linearGradient id="barHoriz-InProgress" x1="0" y1="0" x2="1" y2="0">
+                      <stop offset="0%" stopColor="#60A5FA" />
+                      <stop offset="100%" stopColor="#2563EB" />
+                    </linearGradient>
+                    <linearGradient id="barHoriz-Resolved" x1="0" y1="0" x2="1" y2="0">
+                      <stop offset="0%" stopColor="#34D399" />
+                      <stop offset="100%" stopColor="#059669" />
+                    </linearGradient>
+                    <linearGradient id="barHoriz-Accepted" x1="0" y1="0" x2="1" y2="0">
+                      <stop offset="0%" stopColor="#A78BFA" />
+                      <stop offset="100%" stopColor="#7C3AED" />
+                    </linearGradient>
+                  </defs>
+                  <CartesianGrid strokeDasharray="3 3" stroke="#E5EAF5" horizontal={false} />
+                  <XAxis type="number" stroke="#94A3B8" fontSize={11} allowDecimals={false} tickLine={false} axisLine={false} />
+                  <YAxis dataKey="name" type="category" stroke="#64748b" fontSize={11} width={80} tickLine={false} />
                   <Tooltip content={<CustomTooltip />} />
-                  <Bar dataKey="count" radius={[0, 4, 4, 0]}>
-                    {(data.trends.newVsResolvedTrends || []).map((entry, idx) => (
-                      <Cell key={`cell-l-${idx}`} fill={entry.fill} />
-                    ))}
+                  <Bar dataKey="count" radius={[0, 6, 6, 0]}>
+                    {(data.trends.newVsResolvedTrends || []).map((entry, idx) => {
+                      const gradId = entry.name.includes('Open') ? 'url(#barHoriz-Open)'
+                        : entry.name.includes('Progress') ? 'url(#barHoriz-InProgress)'
+                        : entry.name.includes('Resolved') ? 'url(#barHoriz-Resolved)'
+                        : 'url(#barHoriz-Accepted)';
+                      return <Cell key={`cell-l-${idx}`} fill={gradId} />;
+                    })}
                   </Bar>
                 </BarChart>
               </ResponsiveContainer>
@@ -1131,17 +1421,21 @@ export default function Dashboard() {
       </div>
 
       {/* 6. Repository Risk Table with Scan Freshness & Quick Actions */}
-      <div style={{
-        backgroundColor: 'var(--bg-card)',
-        border: '1px solid var(--border-color)',
-        borderRadius: '12px',
-        overflow: 'hidden',
-        display: 'flex',
-        flexDirection: 'column',
-      }}>
+      <div
+        className="card-prismatic"
+        style={{
+          backgroundColor: 'var(--bg-card)',
+          border: '1px solid var(--border-color)',
+          borderRadius: '16px',
+          overflow: 'hidden',
+          display: 'flex',
+          flexDirection: 'column',
+          boxShadow: 'var(--card-shadow)',
+        }}
+      >
         {/* Table Header with Search */}
         <div style={{
-          padding: '1.25rem 1.5rem',
+          padding: '1.25rem 1.75rem',
           borderBottom: '1px solid var(--border-color)',
           display: 'flex',
           justifyContent: 'space-between',
@@ -1151,15 +1445,36 @@ export default function Dashboard() {
           backgroundColor: 'var(--bg-secondary)',
         }}>
           <div>
-            <h2 style={{ fontSize: '1.1rem', fontWeight: 700, color: 'var(--text-primary)' }}>
-              Repository Risk & Freshness Hygiene
-            </h2>
-            <p style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '0.65rem' }}>
+              <h2 style={{ fontSize: '1.1rem', fontWeight: 700, color: 'var(--text-primary)', margin: 0 }}>
+                Repository Risk & Freshness Hygiene
+              </h2>
+              <span style={{
+                fontSize: '0.72rem',
+                fontWeight: 700,
+                padding: '0.15rem 0.5rem',
+                borderRadius: '9999px',
+                backgroundColor: 'rgba(37, 99, 235, 0.08)',
+                color: 'var(--accent-primary)',
+              }}>
+                {filteredRiskTable.length} Repositories
+              </span>
+            </div>
+            <p style={{ fontSize: '0.75rem', color: 'var(--text-muted)', marginTop: '0.25rem', marginBottom: 0 }}>
               Live posture matrix, vulnerability scores, and scan freshness tracking across monitored repositories.
             </p>
           </div>
 
-          <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', padding: '0.4rem 0.75rem', backgroundColor: 'var(--bg-card)', border: '1px solid var(--border-color)', borderRadius: '6px' }}>
+          <div style={{
+            display: 'flex',
+            alignItems: 'center',
+            gap: '0.5rem',
+            padding: '0.45rem 0.85rem',
+            backgroundColor: '#ffffff',
+            border: '1px solid var(--border-color)',
+            borderRadius: '8px',
+            boxShadow: '0 1px 2px rgba(0, 0, 0, 0.03)',
+          }}>
             <Search size={14} color="var(--text-muted)" />
             <input
               type="text"
@@ -1235,7 +1550,7 @@ export default function Dashboard() {
                         <div style={{ display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
                           <span style={{
                             fontWeight: 700,
-                            color: repo.score >= 90 ? 'var(--status-success)' : repo.score >= 75 ? '#eab308' : 'var(--severity-critical)',
+                            color: repo.score >= 90 ? 'var(--status-success)' : repo.score >= 75 ? 'var(--severity-medium)' : 'var(--severity-critical)',
                           }}>
                             {repo.score}%
                           </span>
@@ -1244,7 +1559,8 @@ export default function Dashboard() {
                             borderRadius: '4px',
                             fontSize: '0.68rem',
                             fontWeight: 700,
-                            backgroundColor: repo.score >= 90 ? 'rgba(16, 185, 129, 0.15)' : 'rgba(239, 68, 68, 0.15)',
+                            backgroundColor: repo.score >= 90 ? 'var(--status-success-bg)' : 'var(--severity-critical-bg)',
+                            border: `1px solid ${repo.score >= 90 ? 'var(--status-success-border)' : 'var(--severity-critical-border)'}`,
                             color: repo.score >= 90 ? 'var(--status-success)' : 'var(--severity-critical)',
                           }}>
                             Grade {repo.grade}
@@ -1262,7 +1578,8 @@ export default function Dashboard() {
                         borderRadius: '4px',
                         fontSize: '0.75rem',
                         fontWeight: 700,
-                        backgroundColor: repo.openCriticalCount > 0 ? 'rgba(239, 68, 68, 0.15)' : 'transparent',
+                        backgroundColor: repo.openCriticalCount > 0 ? 'var(--severity-critical-bg)' : 'transparent',
+                        border: repo.openCriticalCount > 0 ? '1px solid var(--severity-critical-border)' : 'none',
                         color: repo.openCriticalCount > 0 ? 'var(--severity-critical)' : 'var(--text-muted)',
                       }}>
                         {repo.openCriticalCount}
@@ -1276,7 +1593,8 @@ export default function Dashboard() {
                         borderRadius: '4px',
                         fontSize: '0.75rem',
                         fontWeight: 700,
-                        backgroundColor: repo.openHighCount > 0 ? 'rgba(249, 115, 22, 0.15)' : 'transparent',
+                        backgroundColor: repo.openHighCount > 0 ? 'var(--severity-high-bg)' : 'transparent',
+                        border: repo.openHighCount > 0 ? '1px solid var(--severity-high-border)' : 'none',
                         color: repo.openHighCount > 0 ? 'var(--severity-high)' : 'var(--text-muted)',
                       }}>
                         {repo.openHighCount}
@@ -1292,10 +1610,17 @@ export default function Dashboard() {
                           fontSize: '0.7rem',
                           fontWeight: 700,
                           backgroundColor: repo.freshness === 'FRESH'
-                            ? 'rgba(16, 185, 129, 0.15)'
+                            ? 'var(--status-success-bg)'
                             : repo.freshness === 'STALE'
-                            ? 'rgba(249, 115, 22, 0.15)'
-                            : 'rgba(100, 116, 139, 0.15)',
+                            ? 'var(--severity-high-bg)'
+                            : 'var(--bg-secondary)',
+                          border: `1px solid ${
+                            repo.freshness === 'FRESH'
+                              ? 'var(--status-success-border)'
+                              : repo.freshness === 'STALE'
+                              ? 'var(--severity-high-border)'
+                              : 'var(--border-color)'
+                          }`,
                           color: repo.freshness === 'FRESH'
                             ? 'var(--status-success)'
                             : repo.freshness === 'STALE'
@@ -1318,15 +1643,22 @@ export default function Dashboard() {
                         fontSize: '0.7rem',
                         fontWeight: 700,
                         backgroundColor: repo.scanStatus === 'COMPLETED'
-                          ? 'rgba(16, 185, 129, 0.12)'
+                          ? 'var(--status-success-bg)'
                           : repo.scanStatus === 'FAILED'
-                          ? 'rgba(239, 68, 68, 0.12)'
-                          : 'rgba(14, 165, 233, 0.12)',
+                          ? 'var(--severity-critical-bg)'
+                          : 'var(--badge-info-bg)',
+                        border: `1px solid ${
+                          repo.scanStatus === 'COMPLETED'
+                            ? 'var(--status-success-border)'
+                            : repo.scanStatus === 'FAILED'
+                            ? 'var(--severity-critical-border)'
+                            : 'var(--badge-info-border)'
+                        }`,
                         color: repo.scanStatus === 'COMPLETED'
                           ? 'var(--status-success)'
                           : repo.scanStatus === 'FAILED'
                           ? 'var(--severity-critical)'
-                          : 'var(--accent-cyan)',
+                          : 'var(--badge-info-text)',
                       }}>
                         {repo.scanStatus}
                       </span>
@@ -1478,32 +1810,41 @@ export default function Dashboard() {
           left: 0,
           right: 0,
           bottom: 0,
-          backgroundColor: 'rgba(0, 0, 0, 0.7)',
+          backgroundColor: 'rgba(15, 23, 42, 0.45)',
+          backdropFilter: 'blur(8px)',
           display: 'flex',
           alignItems: 'center',
           justifyContent: 'center',
           zIndex: 100,
           padding: '1rem',
         }}>
-          <div style={{
-            backgroundColor: 'var(--bg-card)',
-            border: '1px solid var(--border-color)',
-            borderRadius: '12px',
-            width: '100%',
-            maxWidth: '500px',
-            padding: '1.5rem',
-            display: 'flex',
-            flexDirection: 'column',
-            gap: '1.25rem',
-            boxShadow: '0 20px 25px -5px rgba(0, 0, 0, 0.5)',
-          }}>
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderBottom: '1px solid var(--border-color)', paddingBottom: '0.75rem' }}>
-              <h3 style={{ fontSize: '1.1rem', fontWeight: 700, color: 'var(--text-primary)' }}>
-                Track New Git Repository
-              </h3>
+          <div
+            className="card-prismatic"
+            style={{
+              backgroundColor: '#ffffff',
+              border: '1px solid var(--border-color)',
+              borderRadius: '16px',
+              width: '100%',
+              maxWidth: '500px',
+              padding: '1.75rem',
+              display: 'flex',
+              flexDirection: 'column',
+              gap: '1.25rem',
+              boxShadow: '0 25px 50px -12px rgba(0, 0, 0, 0.15)',
+            }}
+          >
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderBottom: '1px solid var(--border-color)', paddingBottom: '0.85rem' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                <div style={{ width: '28px', height: '28px', borderRadius: '8px', background: 'var(--gradient-primary)', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#ffffff' }}>
+                  <Plus size={16} />
+                </div>
+                <h3 style={{ fontSize: '1.15rem', fontWeight: 700, color: 'var(--text-primary)', margin: 0 }}>
+                  Track New Git Repository
+                </h3>
+              </div>
               <button
                 onClick={() => setShowAddRepoModal(false)}
-                style={{ background: 'none', border: 'none', color: 'var(--text-muted)', cursor: 'pointer' }}
+                style={{ background: 'none', border: 'none', color: 'var(--text-muted)', cursor: 'pointer', padding: '0.2rem', borderRadius: '4px' }}
               >
                 <X size={18} />
               </button>
@@ -1511,12 +1852,13 @@ export default function Dashboard() {
 
             {addRepoError && (
               <div style={{
-                padding: '0.75rem',
-                backgroundColor: 'rgba(239, 68, 68, 0.15)',
-                border: '1px solid rgba(239, 68, 68, 0.3)',
-                borderRadius: '6px',
-                color: 'var(--severity-critical)',
-                fontSize: '0.8rem',
+                padding: '0.75rem 1rem',
+                backgroundColor: 'rgba(251, 113, 133, 0.12)',
+                border: '1px solid rgba(251, 113, 133, 0.3)',
+                borderRadius: '8px',
+                color: '#E11D48',
+                fontSize: '0.825rem',
+                fontWeight: 500,
               }}>
                 {addRepoError}
               </div>
@@ -1574,11 +1916,11 @@ export default function Dashboard() {
                   type="button"
                   onClick={() => setShowAddRepoModal(false)}
                   style={{
-                    padding: '0.55rem 1rem',
+                    padding: '0.6rem 1.15rem',
                     backgroundColor: 'var(--bg-secondary)',
                     border: '1px solid var(--border-color)',
                     color: 'var(--text-secondary)',
-                    borderRadius: '6px',
+                    borderRadius: '8px',
                     fontSize: '0.85rem',
                     fontWeight: 600,
                     cursor: 'pointer',
@@ -1589,12 +1931,11 @@ export default function Dashboard() {
                 <button
                   type="submit"
                   disabled={addingRepo}
+                  className="btn-primary-gradient"
                   style={{
-                    padding: '0.55rem 1.25rem',
-                    backgroundColor: 'var(--accent-cyan)',
+                    padding: '0.6rem 1.35rem',
                     border: 'none',
-                    color: '#ffffff',
-                    borderRadius: '6px',
+                    borderRadius: '8px',
                     fontSize: '0.85rem',
                     fontWeight: 600,
                     cursor: addingRepo ? 'not-allowed' : 'pointer',
@@ -1616,41 +1957,47 @@ export default function Dashboard() {
           left: 0,
           right: 0,
           bottom: 0,
-          backgroundColor: 'rgba(0, 0, 0, 0.7)',
+          backgroundColor: 'rgba(15, 23, 42, 0.45)',
+          backdropFilter: 'blur(8px)',
           display: 'flex',
           alignItems: 'center',
           justifyContent: 'center',
           zIndex: 100,
           padding: '1rem',
         }}>
-          <div style={{
-            backgroundColor: 'var(--bg-card)',
-            border: '1px solid var(--border-color)',
-            borderRadius: '12px',
-            width: '100%',
-            maxWidth: '480px',
-            padding: '1.5rem',
-            display: 'flex',
-            flexDirection: 'column',
-            gap: '1.25rem',
-            boxShadow: '0 20px 25px -5px rgba(0, 0, 0, 0.5)',
-          }}>
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderBottom: '1px solid var(--border-color)', paddingBottom: '0.75rem' }}>
-              <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-                <Play size={18} color="var(--accent-cyan)" />
-                <h3 style={{ fontSize: '1.1rem', fontWeight: 700, color: 'var(--text-primary)' }}>
+          <div
+            className="card-prismatic"
+            style={{
+              backgroundColor: '#ffffff',
+              border: '1px solid var(--border-color)',
+              borderRadius: '16px',
+              width: '100%',
+              maxWidth: '480px',
+              padding: '1.75rem',
+              display: 'flex',
+              flexDirection: 'column',
+              gap: '1.25rem',
+              boxShadow: '0 25px 50px -12px rgba(0, 0, 0, 0.15)',
+            }}
+          >
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderBottom: '1px solid var(--border-color)', paddingBottom: '0.85rem' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '0.65rem' }}>
+                <div style={{ width: '28px', height: '28px', borderRadius: '8px', background: 'var(--gradient-primary)', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#ffffff' }}>
+                  <Play size={14} />
+                </div>
+                <h3 style={{ fontSize: '1.15rem', fontWeight: 700, color: 'var(--text-primary)', margin: 0 }}>
                   Launch Security Scan
                 </h3>
               </div>
               <button
                 onClick={() => setShowQuickScanModal(false)}
-                style={{ background: 'none', border: 'none', color: 'var(--text-muted)', cursor: 'pointer' }}
+                style={{ background: 'none', border: 'none', color: 'var(--text-muted)', cursor: 'pointer', padding: '0.2rem', borderRadius: '4px' }}
               >
                 <X size={18} />
               </button>
             </div>
 
-            <p style={{ fontSize: '0.85rem', color: 'var(--text-secondary)' }}>
+            <p style={{ fontSize: '0.85rem', color: 'var(--text-secondary)', margin: 0, lineHeight: 1.5 }}>
               Triggers synchronous Gitleaks credential history analysis and Trivy SCA dependency vulnerability detection.
             </p>
 
@@ -1670,6 +2017,7 @@ export default function Dashboard() {
                   color: 'var(--text-primary)',
                   fontSize: '0.85rem',
                   outline: 'none',
+                  cursor: 'pointer',
                 }}
               >
                 {data.availableRepositories.map((r) => (
@@ -1685,11 +2033,11 @@ export default function Dashboard() {
                 type="button"
                 onClick={() => setShowQuickScanModal(false)}
                 style={{
-                  padding: '0.55rem 1rem',
+                  padding: '0.6rem 1.15rem',
                   backgroundColor: 'var(--bg-secondary)',
                   border: '1px solid var(--border-color)',
                   color: 'var(--text-secondary)',
-                  borderRadius: '6px',
+                  borderRadius: '8px',
                   fontSize: '0.85rem',
                   fontWeight: 600,
                   cursor: 'pointer',
@@ -1701,18 +2049,21 @@ export default function Dashboard() {
                 type="button"
                 onClick={() => handleTriggerScan(selectedScanRepoId)}
                 disabled={!selectedScanRepoId || scanningRepoId !== null}
+                className="btn-primary-gradient"
                 style={{
-                  padding: '0.55rem 1.25rem',
-                  backgroundColor: 'var(--accent-cyan)',
+                  padding: '0.6rem 1.35rem',
                   border: 'none',
-                  color: '#ffffff',
-                  borderRadius: '6px',
+                  borderRadius: '8px',
                   fontSize: '0.85rem',
                   fontWeight: 600,
                   cursor: !selectedScanRepoId || scanningRepoId !== null ? 'not-allowed' : 'pointer',
+                  display: 'inline-flex',
+                  alignItems: 'center',
+                  gap: '0.4rem',
                 }}
               >
-                {scanningRepoId ? 'Running Scanners...' : 'Start Scan Now'}
+                {scanningRepoId ? <RefreshCw size={14} style={{ animation: 'spin 1s linear infinite' }} /> : <Play size={14} />}
+                <span>{scanningRepoId ? 'Running Scanners...' : 'Start Scan Now'}</span>
               </button>
             </div>
           </div>

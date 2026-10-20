@@ -39,7 +39,11 @@ export default function Navbar() {
 
     if (token) {
       fetchNotificationSummary();
-      const interval = setInterval(fetchNotificationSummary, 20000);
+      const interval = setInterval(() => {
+        if (typeof document !== 'undefined' && document.visibilityState === 'visible') {
+          fetchNotificationSummary();
+        }
+      }, 30000);
       return () => clearInterval(interval);
     }
   }, [token]);
@@ -80,7 +84,9 @@ export default function Navbar() {
     <header style={{
       height: '64px',
       borderBottom: '1px solid var(--border-color)',
-      backgroundColor: 'var(--bg-secondary)',
+      backgroundColor: 'rgba(255, 255, 255, 0.92)',
+      backdropFilter: 'blur(12px)',
+      WebkitBackdropFilter: 'blur(12px)',
       display: 'flex',
       alignItems: 'center',
       justifyContent: 'space-between',
@@ -94,21 +100,21 @@ export default function Navbar() {
         <div style={{
           width: '36px',
           height: '36px',
-          borderRadius: '8px',
-          backgroundColor: 'var(--accent-cyan-glow)',
-          border: '1px solid var(--accent-cyan)',
+          borderRadius: '10px',
+          background: 'var(--gradient-primary)',
           display: 'flex',
           alignItems: 'center',
           justifyContent: 'center',
-          color: 'var(--accent-cyan)',
+          color: '#FFFFFF',
+          boxShadow: '0 4px 12px rgba(37, 99, 235, 0.28)',
         }}>
           <Shield size={20} />
         </div>
         <div>
-          <div style={{ fontWeight: 700, fontSize: '1rem', letterSpacing: '0.02em', color: 'var(--text-primary)' }}>
+          <div style={{ fontWeight: 700, fontSize: '0.98rem', letterSpacing: '0.01em', color: 'var(--text-primary)' }}>
             Git Security Scanner
           </div>
-          <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>
+          <div style={{ fontSize: '0.72rem', color: 'var(--text-secondary)' }}>
             Gov Open-Source Integrity Dashboard
           </div>
         </div>
@@ -121,18 +127,20 @@ export default function Navbar() {
           display: 'flex',
           alignItems: 'center',
           gap: '0.5rem',
-          padding: '0.35rem 0.75rem',
+          padding: '0.35rem 0.85rem',
           borderRadius: '9999px',
-          backgroundColor: 'rgba(16, 185, 129, 0.1)',
-          border: '1px solid rgba(16, 185, 129, 0.25)',
+          background: 'linear-gradient(135deg, rgba(20, 184, 166, 0.08) 0%, rgba(16, 185, 129, 0.08) 100%)',
+          border: '1px solid rgba(16, 185, 129, 0.3)',
           fontSize: '0.75rem',
           color: 'var(--status-success)',
+          fontWeight: 600,
         }}>
           <span style={{
-            width: '6px',
-            height: '6px',
+            width: '7px',
+            height: '7px',
             borderRadius: '50%',
             backgroundColor: 'var(--status-success)',
+            boxShadow: '0 0 8px rgba(16, 185, 129, 0.6)',
           }} />
           <span>Gitleaks & Trivy Engines Ready</span>
         </div>
@@ -153,7 +161,7 @@ export default function Navbar() {
                   width: '36px',
                   height: '36px',
                   borderRadius: '8px',
-                  backgroundColor: showNotifMenu ? 'rgba(14, 165, 233, 0.15)' : 'var(--bg-card)',
+                  backgroundColor: showNotifMenu ? 'var(--badge-info-bg)' : 'var(--bg-card)',
                   border: showNotifMenu ? '1px solid var(--accent-cyan)' : '1px solid var(--border-color)',
                   color: showNotifMenu ? 'var(--accent-cyan)' : 'var(--text-secondary)',
                   cursor: 'pointer',
@@ -197,7 +205,7 @@ export default function Navbar() {
                     backgroundColor: 'var(--bg-card)',
                     border: '1px solid var(--border-color)',
                     borderRadius: '10px',
-                    boxShadow: '0 10px 25px -5px rgba(0, 0, 0, 0.5), 0 8px 10px -6px rgba(0, 0, 0, 0.4)',
+                    boxShadow: '0 10px 25px -5px rgba(0, 0, 0, 0.1), 0 8px 10px -6px rgba(0, 0, 0, 0.05)',
                     zIndex: 50,
                     overflow: 'hidden',
                   }}
@@ -252,7 +260,7 @@ export default function Navbar() {
                           style={{
                             padding: '0.75rem 1rem',
                             borderBottom: '1px solid var(--border-color)',
-                            backgroundColor: n.isRead ? 'transparent' : 'rgba(14, 165, 233, 0.05)',
+                            backgroundColor: n.isRead ? 'transparent' : '#f0f9ff',
                             cursor: 'pointer',
                             display: 'flex',
                             flexDirection: 'column',
@@ -349,19 +357,17 @@ export default function Navbar() {
                 fontSize: '0.85rem',
                 fontWeight: 600,
                 borderRadius: '6px',
-                backgroundColor: 'rgba(239, 68, 68, 0.1)',
-                border: '1px solid rgba(239, 68, 68, 0.3)',
+                backgroundColor: 'var(--severity-critical-bg)',
+                border: '1px solid var(--severity-critical-border)',
                 color: 'var(--severity-critical)',
                 cursor: 'pointer',
                 transition: 'all 0.15s ease',
               }}
               onMouseEnter={(e) => {
-                e.currentTarget.style.backgroundColor = 'rgba(239, 68, 68, 0.2)';
-                e.currentTarget.style.borderColor = 'rgba(239, 68, 68, 0.5)';
+                e.currentTarget.style.backgroundColor = 'var(--severity-critical-border)';
               }}
               onMouseLeave={(e) => {
-                e.currentTarget.style.backgroundColor = 'rgba(239, 68, 68, 0.1)';
-                e.currentTarget.style.borderColor = 'rgba(239, 68, 68, 0.3)';
+                e.currentTarget.style.backgroundColor = 'var(--severity-critical-bg)';
               }}
             >
               <LogOut size={15} />

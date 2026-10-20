@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { 
   ShieldAlert, 
   KeyRound, 
@@ -25,7 +25,6 @@ import {
 } from 'lucide-react';
 import { Link, useSearchParams, useNavigate } from 'react-router-dom';
 import api from '../services/api';
-import { downloadSecurityReportPDF } from '../utils/pdfGenerator';
 
 const formatDetectedAt = (dateStr) => {
   if (!dateStr) return 'Recently';
@@ -146,55 +145,72 @@ export default function Findings() {
   const completedReposWithScans = relevantRepos.filter((r) => r.latestScan?.status === 'COMPLETED');
   const hasEverScanned = Boolean(selectedScan) || relevantRepos.some((r) => r.lastScannedAt !== null);
 
-  // Filter findings based on active tab, status, severity, and search query
-  const filteredFindings = findings.filter((finding) => {
-    // If not in single-scan mode and repository filter is active
-    if (!selectedScan && selectedRepoId !== 'ALL') {
-      const findingRepoId = finding.repositoryId?._id || finding.repositoryId?.id || finding.repositoryId;
-      if (String(findingRepoId) !== selectedRepoId) {
+  // Filter findings based on active tab, status, severity, and search query (Memoized)
+  const filteredFindings = useMemo(() => {
+    return findings.filter((finding) => {
+      // If not in single-scan mode and repository filter is active
+      if (!selectedScan && selectedRepoId !== 'ALL') {
+        const findingRepoId = finding.repositoryId?._id || finding.repositoryId?.id || finding.repositoryId;
+        if (String(findingRepoId) !== selectedRepoId) {
+          return false;
+        }
+      }
+
+      const isSecret = finding.scanner === 'GITLEAKS' || (finding.type && finding.type.toLowerCase().includes('secret'));
+      const isVuln = finding.scanner === 'TRIVY' || (finding.type && finding.type.toLowerCase().includes('vuln'));
+
+      if (filter === 'SECRETS' && !isSecret) return false;
+      if (filter === 'VULNERABILITIES' && !isVuln) return false;
+      if (filter === 'CRITICAL' && finding.severity !== 'CRITICAL') return false;
+
+      // Status filter
+      const currentStatus = finding.status || 'OPEN';
+      if (statusFilter !== 'ALL' && currentStatus !== statusFilter) {
         return false;
       }
-    }
 
-    const isSecret = finding.scanner === 'GITLEAKS' || (finding.type && finding.type.toLowerCase().includes('secret'));
-    const isVuln = finding.scanner === 'TRIVY' || (finding.type && finding.type.toLowerCase().includes('vuln'));
-
-    if (filter === 'SECRETS' && !isSecret) return false;
-    if (filter === 'VULNERABILITIES' && !isVuln) return false;
-    if (filter === 'CRITICAL' && finding.severity !== 'CRITICAL') return false;
-
-    // Status filter
-    const currentStatus = finding.status || 'OPEN';
-    if (statusFilter !== 'ALL' && currentStatus !== statusFilter) {
-      return false;
-    }
-
-    // Severity filter
-    if (severityFilter !== 'ALL' && (finding.severity || '').toUpperCase() !== severityFilter) {
-      return false;
-    }
-
-    if (searchQuery.trim()) {
-      const query = searchQuery.toLowerCase();
-      const repoName = finding.repositoryId 
-        ? `${finding.repositoryId.owner || ''}/${finding.repositoryId.name || ''}`.toLowerCase()
-        : '';
-      const matchTitle = (finding.title || '').toLowerCase().includes(query);
-      const matchFile = (finding.file || '').toLowerCase().includes(query);
-      const matchId = (finding.identifier || '').toLowerCase().includes(query);
-      const matchRepo = repoName.includes(query);
-      const matchDesc = (finding.description || '').toLowerCase().includes(query);
-      const matchRemediation = (finding.remediation || '').toLowerCase().includes(query);
-      const matchStatus = currentStatus.toLowerCase().includes(query);
-      const matchNote = (finding.remediationNote || '').toLowerCase().includes(query);
-
-      if (!matchTitle && !matchFile && !matchId && !matchRepo && !matchDesc && !matchRemediation && !matchStatus && !matchNote) {
+      // Severity filter
+      if (severityFilter !== 'ALL' && (finding.severity || '').toUpperCase() !== severityFilter) {
         return false;
       }
-    }
 
-    return true;
-  });
+      if (searchQuery.trim()) {
+        const query = searchQuery.toLowerCase();
+        const repoName = finding.repositoryId 
+          ? `${finding.repositoryId.owner || ''}/${finding.repositoryId.name || ''}`.toLowerCase()
+          : '';
+        const matchTitle = (finding.title || '').toLowerCase().includes(query);
+        const matchFile = (finding.file || '').toLowerCase().includes(query);
+        const matchId = (finding.identifier || '').toLowerCase().includes(query);
+        const matchRepo = repoName.includes(query);
+        const matchDesc = (finding.description || '').toLowerCase().includes(query);
+        const matchRemediation = (finding.remediation || '').toLowerCase().includes(query);
+        const matchStatus = currentStatus.toLowerCase().includes(query);
+        const matchNote = (finding.remediationNote || '').toLowerCase().includes(query);
+
+        if (!matchTitle && !matchFile && !matchId && !matchRepo && !matchDesc && !matchRemediation && !matchStatus && !matchNote) {
+          return false;
+        }
+      }
+
+      return true;
+    });
+  }, [findings, selectedScan, selectedRepoId, filter, statusFilter, severityFilter, searchQuery]);
+
+  // High-performance client-side pagination: 20 cards per page
+  const [currentPage, setCurrentPage] = useState(1);
+  const itemsPerPage = 20;
+
+  // Reset to first page when any search/filter criteria changes
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [filter, statusFilter, severityFilter, searchQuery, selectedRepoId, scanIdParam]);
+
+  const totalPages = Math.max(1, Math.ceil(filteredFindings.length / itemsPerPage));
+  const paginatedFindings = useMemo(() => {
+    const startIdx = (currentPage - 1) * itemsPerPage;
+    return filteredFindings.slice(startIdx, startIdx + itemsPerPage);
+  }, [filteredFindings, currentPage]);
 
   const handleOpenStatusModal = (finding) => {
     setStatusModalFinding(finding);
@@ -256,6 +272,7 @@ export default function Findings() {
         ? 'Critical Severity Only'
         : 'All Findings';
 
+      const { downloadSecurityReportPDF } = await import('../utils/pdfGenerator');
       const filename = downloadSecurityReportPDF({
         findings: filteredFindings,
         repository: targetRepo,
@@ -336,32 +353,23 @@ export default function Findings() {
             onClick={() => handleDownloadPDF('auto')}
             disabled={pdfDownloading || loading}
             title="Download PDF report of current findings"
+            className="btn-primary-gradient"
             style={{
               display: 'inline-flex',
               alignItems: 'center',
               gap: '0.5rem',
-              padding: '0.65rem 1.15rem',
-              backgroundColor: 'var(--accent-cyan)',
-              color: '#ffffff',
-              borderRadius: '8px',
+              padding: '0.65rem 1.25rem',
+              borderRadius: '10px',
               fontWeight: 600,
-              fontSize: '0.875rem',
+              fontSize: '0.85rem',
               cursor: pdfDownloading || loading ? 'not-allowed' : 'pointer',
               border: 'none',
-              boxShadow: '0 2px 4px rgba(6, 182, 212, 0.2)',
-              transition: 'all 0.15s ease',
-            }}
-            onMouseEnter={(e) => {
-              if (!pdfDownloading && !loading) e.currentTarget.style.opacity = '0.9';
-            }}
-            onMouseLeave={(e) => {
-              if (!pdfDownloading && !loading) e.currentTarget.style.opacity = '1';
             }}
           >
             {pdfDownloading ? (
-              <RefreshCw size={16} style={{ animation: 'spin 1s linear infinite' }} />
+              <RefreshCw size={15} style={{ animation: 'spin 1s linear infinite' }} />
             ) : (
-              <FileDown size={16} />
+              <FileDown size={15} />
             )}
             <span>
               {pdfDownloading 
@@ -382,26 +390,27 @@ export default function Findings() {
               display: 'flex',
               alignItems: 'center',
               gap: '0.5rem',
-              padding: '0.65rem 1rem',
-              backgroundColor: 'var(--bg-card)',
+              padding: '0.65rem 1.15rem',
+              backgroundColor: '#ffffff',
               border: '1px solid var(--border-color)',
-              color: 'var(--text-secondary)',
-              borderRadius: '8px',
+              color: 'var(--text-primary)',
+              borderRadius: '10px',
               fontWeight: 600,
-              fontSize: '0.875rem',
+              fontSize: '0.85rem',
               cursor: loading ? 'not-allowed' : 'pointer',
-              transition: 'all 0.15s ease',
+              boxShadow: '0 1px 3px rgba(0, 0, 0, 0.04)',
+              transition: 'all 0.2s cubic-bezier(0.16, 1, 0.3, 1)',
             }}
             onMouseEnter={(e) => {
               if (!loading) {
-                e.currentTarget.style.color = 'var(--text-primary)';
-                e.currentTarget.style.borderColor = 'var(--accent-cyan)';
+                e.currentTarget.style.borderColor = 'var(--accent-primary)';
+                e.currentTarget.style.boxShadow = '0 4px 12px rgba(37, 99, 235, 0.12)';
               }
             }}
             onMouseLeave={(e) => {
               if (!loading) {
-                e.currentTarget.style.color = 'var(--text-secondary)';
                 e.currentTarget.style.borderColor = 'var(--border-color)';
+                e.currentTarget.style.boxShadow = '0 1px 3px rgba(0, 0, 0, 0.04)';
               }
             }}
           >
@@ -419,8 +428,8 @@ export default function Findings() {
           justifyContent: 'space-between',
           gap: '0.75rem',
           padding: '0.75rem 1rem',
-          backgroundColor: pdfNotification.type === 'success' ? 'rgba(34, 197, 94, 0.1)' : 'rgba(239, 68, 68, 0.1)',
-          border: `1px solid ${pdfNotification.type === 'success' ? 'rgba(34, 197, 94, 0.3)' : 'rgba(239, 68, 68, 0.3)'}`,
+          backgroundColor: pdfNotification.type === 'success' ? 'var(--status-success-bg)' : 'var(--severity-critical-bg)',
+          border: `1px solid ${pdfNotification.type === 'success' ? 'var(--status-success-border)' : 'var(--severity-critical-border)'}`,
           borderRadius: '8px',
           color: pdfNotification.type === 'success' ? 'var(--status-success)' : 'var(--severity-critical)',
           fontSize: '0.85rem',
@@ -452,10 +461,10 @@ export default function Findings() {
           justifyContent: 'space-between',
           alignItems: 'center',
           padding: '1rem 1.25rem',
-          backgroundColor: 'rgba(234, 179, 8, 0.1)',
-          border: '1px solid rgba(234, 179, 8, 0.3)',
+          backgroundColor: 'var(--severity-medium-bg)',
+          border: '1px solid var(--severity-medium-border)',
           borderRadius: '8px',
-          color: '#facc15',
+          color: 'var(--severity-medium)',
           fontSize: '0.875rem',
         }}>
           <div>
@@ -465,8 +474,8 @@ export default function Findings() {
             to="/login"
             style={{
               padding: '0.4rem 0.85rem',
-              backgroundColor: '#eab308',
-              color: '#0f172a',
+              backgroundColor: 'var(--accent-cyan)',
+              color: '#ffffff',
               borderRadius: '6px',
               fontWeight: 600,
               fontSize: '0.8rem',
@@ -485,8 +494,8 @@ export default function Findings() {
           flexDirection: 'column',
           gap: '1rem',
           padding: '1.5rem',
-          backgroundColor: 'rgba(239, 68, 68, 0.1)',
-          border: '1px solid rgba(239, 68, 68, 0.3)',
+          backgroundColor: 'var(--severity-critical-bg)',
+          border: '1px solid var(--severity-critical-border)',
           borderRadius: '10px',
         }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', color: 'var(--severity-critical)', fontWeight: 700, fontSize: '1rem' }}>
@@ -545,8 +554,8 @@ export default function Findings() {
           alignItems: 'center',
           gap: '0.5rem',
           padding: '0.75rem 1rem',
-          backgroundColor: 'rgba(239, 68, 68, 0.1)',
-          border: '1px solid rgba(239, 68, 68, 0.3)',
+          backgroundColor: 'var(--severity-critical-bg)',
+          border: '1px solid var(--severity-critical-border)',
           borderRadius: '8px',
           color: 'var(--severity-critical)',
           fontSize: '0.85rem',
@@ -589,9 +598,9 @@ export default function Findings() {
                 borderRadius: '9999px',
                 fontSize: '0.75rem',
                 fontWeight: 700,
-                backgroundColor: selectedScan.status === 'COMPLETED' ? 'rgba(34, 197, 94, 0.15)' : 'rgba(239, 68, 68, 0.15)',
+                backgroundColor: selectedScan.status === 'COMPLETED' ? 'var(--status-success-bg)' : 'var(--severity-critical-bg)',
                 color: selectedScan.status === 'COMPLETED' ? 'var(--status-success)' : 'var(--severity-critical)',
-                border: `1px solid ${selectedScan.status === 'COMPLETED' ? 'rgba(34, 197, 94, 0.3)' : 'rgba(239, 68, 68, 0.3)'}`,
+                border: `1px solid ${selectedScan.status === 'COMPLETED' ? 'var(--status-success-border)' : 'var(--severity-critical-border)'}`,
               }}>
                 {selectedScan.status}
               </span>
@@ -625,21 +634,21 @@ export default function Findings() {
               <div style={{ fontSize: '0.7rem', color: 'var(--text-muted)' }}>TOTAL FINDINGS</div>
               <div style={{ fontSize: '1.2rem', fontWeight: 700, color: 'var(--text-primary)' }}>{selectedScan.totalFindings || 0}</div>
             </div>
-            <div style={{ padding: '0.5rem 0.75rem', backgroundColor: 'rgba(239, 68, 68, 0.08)', borderRadius: '6px' }}>
+            <div style={{ padding: '0.5rem 0.75rem', backgroundColor: 'var(--severity-critical-bg)', border: '1px solid var(--severity-critical-border)', borderRadius: '6px' }}>
               <div style={{ fontSize: '0.7rem', color: 'var(--severity-critical)' }}>CRITICAL</div>
               <div style={{ fontSize: '1.2rem', fontWeight: 700, color: 'var(--severity-critical)' }}>{selectedScan.criticalCount || 0}</div>
             </div>
-            <div style={{ padding: '0.5rem 0.75rem', backgroundColor: 'rgba(249, 115, 22, 0.08)', borderRadius: '6px' }}>
+            <div style={{ padding: '0.5rem 0.75rem', backgroundColor: 'var(--severity-high-bg)', border: '1px solid var(--severity-high-border)', borderRadius: '6px' }}>
               <div style={{ fontSize: '0.7rem', color: 'var(--severity-high)' }}>HIGH</div>
               <div style={{ fontSize: '1.2rem', fontWeight: 700, color: 'var(--severity-high)' }}>{selectedScan.highCount || 0}</div>
             </div>
-            <div style={{ padding: '0.5rem 0.75rem', backgroundColor: 'rgba(234, 179, 8, 0.08)', borderRadius: '6px' }}>
+            <div style={{ padding: '0.5rem 0.75rem', backgroundColor: 'var(--severity-medium-bg)', border: '1px solid var(--severity-medium-border)', borderRadius: '6px' }}>
               <div style={{ fontSize: '0.7rem', color: 'var(--severity-medium)' }}>MEDIUM</div>
               <div style={{ fontSize: '1.2rem', fontWeight: 700, color: 'var(--severity-medium)' }}>{selectedScan.mediumCount || 0}</div>
             </div>
-            <div style={{ padding: '0.5rem 0.75rem', backgroundColor: 'rgba(59, 130, 246, 0.08)', borderRadius: '6px' }}>
-              <div style={{ fontSize: '0.7rem', color: 'var(--accent-cyan)' }}>LOW</div>
-              <div style={{ fontSize: '1.2rem', fontWeight: 700, color: 'var(--accent-cyan)' }}>{selectedScan.lowCount || 0}</div>
+            <div style={{ padding: '0.5rem 0.75rem', backgroundColor: 'var(--severity-low-bg)', border: '1px solid var(--severity-low-border)', borderRadius: '6px' }}>
+              <div style={{ fontSize: '0.7rem', color: 'var(--severity-low)' }}>LOW</div>
+              <div style={{ fontSize: '1.2rem', fontWeight: 700, color: 'var(--severity-low)' }}>{selectedScan.lowCount || 0}</div>
             </div>
           </div>
         </div>
@@ -652,8 +661,8 @@ export default function Findings() {
           flexDirection: 'column',
           gap: '0.75rem',
           padding: '1rem 1.25rem',
-          backgroundColor: 'rgba(239, 68, 68, 0.12)',
-          border: '1px solid rgba(239, 68, 68, 0.4)',
+          backgroundColor: 'var(--severity-critical-bg)',
+          border: '1px solid var(--severity-critical-border)',
           borderRadius: '8px',
         }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', color: 'var(--severity-critical)', fontWeight: 700, fontSize: '0.95rem' }}>
@@ -675,8 +684,8 @@ export default function Findings() {
                 to="/repositories"
                 style={{
                   padding: '0.35rem 0.75rem',
-                  backgroundColor: 'rgba(239, 68, 68, 0.2)',
-                  border: '1px solid rgba(239, 68, 68, 0.4)',
+                  backgroundColor: 'var(--bg-card)',
+                  border: '1px solid var(--severity-critical-border)',
                   color: 'var(--severity-critical)',
                   borderRadius: '6px',
                   fontWeight: 600,
@@ -969,8 +978,9 @@ export default function Findings() {
           )}
         </div>
       ) : (
-        <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
-          {filteredFindings.map((finding) => {
+        <>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
+          {paginatedFindings.map((finding) => {
             const isSecret = finding.scanner === 'GITLEAKS' || (finding.type && finding.type.toLowerCase().includes('secret'));
             const repoName = finding.repositoryId 
               ? `${finding.repositoryId.owner || ''}/${finding.repositoryId.name || ''}`
@@ -981,14 +991,16 @@ export default function Findings() {
             return (
               <div
                 key={finding._id || finding.id}
+                className="card-prismatic"
                 style={{
                   backgroundColor: 'var(--bg-card)',
                   border: '1px solid var(--border-color)',
-                  borderRadius: '8px',
-                  padding: '1.25rem',
+                  borderRadius: '14px',
+                  padding: '1.35rem',
                   display: 'flex',
                   flexDirection: 'column',
-                  gap: '0.75rem',
+                  gap: '0.85rem',
+                  boxShadow: 'var(--card-shadow)',
                 }}
               >
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', flexWrap: 'wrap', gap: '0.5rem' }}>
@@ -999,27 +1011,27 @@ export default function Findings() {
                       fontSize: '0.75rem',
                       fontWeight: 700,
                       backgroundColor: finding.severity === 'CRITICAL' 
-                        ? 'rgba(239, 68, 68, 0.15)' 
+                        ? 'var(--severity-critical-bg)' 
                         : finding.severity === 'HIGH' 
-                        ? 'rgba(249, 115, 22, 0.15)' 
+                        ? 'var(--severity-high-bg)' 
                         : finding.severity === 'MEDIUM'
-                        ? 'rgba(234, 179, 8, 0.15)'
-                        : 'rgba(59, 130, 246, 0.15)',
+                        ? 'var(--severity-medium-bg)'
+                        : 'var(--severity-low-bg)',
                       color: finding.severity === 'CRITICAL' 
                         ? 'var(--severity-critical)' 
                         : finding.severity === 'HIGH' 
                         ? 'var(--severity-high)' 
                         : finding.severity === 'MEDIUM'
                         ? 'var(--severity-medium)'
-                        : 'var(--accent-cyan)',
+                        : 'var(--severity-low)',
                       border: `1px solid ${
                         finding.severity === 'CRITICAL' 
-                          ? 'rgba(239, 68, 68, 0.3)' 
+                          ? 'var(--severity-critical-border)' 
                           : finding.severity === 'HIGH' 
-                          ? 'rgba(249, 115, 22, 0.3)' 
-                          : finding.severity === 'MEDIUM'
-                          ? 'rgba(234, 179, 8, 0.3)'
-                          : 'rgba(59, 130, 246, 0.3)'
+                          ? 'var(--severity-high-border)' 
+                          : finding.severity === 'MEDIUM' 
+                          ? 'var(--severity-medium-border)'
+                          : 'var(--severity-low-border)'
                       }`,
                     }}>
                       {finding.severity}
@@ -1029,10 +1041,10 @@ export default function Findings() {
                     {(() => {
                       const st = finding.status || 'OPEN';
                       const stColors = {
-                        OPEN: { bg: 'rgba(239, 68, 68, 0.12)', color: '#ef4444', border: 'rgba(239, 68, 68, 0.3)', label: 'OPEN' },
-                        IN_PROGRESS: { bg: 'rgba(14, 165, 233, 0.12)', color: '#0ea5e9', border: 'rgba(14, 165, 233, 0.3)', label: 'IN PROGRESS' },
-                        RESOLVED: { bg: 'rgba(16, 185, 129, 0.12)', color: '#10b981', border: 'rgba(16, 185, 129, 0.3)', label: 'RESOLVED' },
-                        ACCEPTED_RISK: { bg: 'rgba(168, 85, 247, 0.12)', color: '#c084fc', border: 'rgba(168, 85, 247, 0.3)', label: 'ACCEPTED RISK' },
+                        OPEN: { bg: 'var(--severity-critical-bg)', color: 'var(--severity-critical)', border: 'var(--severity-critical-border)', label: 'OPEN' },
+                        IN_PROGRESS: { bg: 'var(--badge-info-bg)', color: 'var(--badge-info-text)', border: 'var(--badge-info-border)', label: 'IN PROGRESS' },
+                        RESOLVED: { bg: 'var(--status-success-bg)', color: 'var(--status-success)', border: 'var(--status-success-border)', label: 'RESOLVED' },
+                        ACCEPTED_RISK: { bg: '#f5f3ff', color: 'var(--accent-violet)', border: '#ddd6fe', label: 'ACCEPTED RISK' },
                       };
                       const conf = stColors[st] || stColors.OPEN;
                       return (
@@ -1152,8 +1164,8 @@ export default function Findings() {
                     display: 'flex',
                     alignItems: 'flex-start',
                     gap: '0.5rem',
-                    backgroundColor: 'rgba(16, 185, 129, 0.08)',
-                    border: '1px solid rgba(16, 185, 129, 0.3)',
+                    backgroundColor: 'var(--status-success-bg)',
+                    border: '1px solid var(--status-success-border)',
                     padding: '0.5rem 0.75rem',
                     borderRadius: '6px',
                     fontSize: '0.8rem',
@@ -1173,8 +1185,8 @@ export default function Findings() {
                     display: 'flex',
                     alignItems: 'flex-start',
                     gap: '0.5rem',
-                    backgroundColor: 'rgba(6, 182, 212, 0.06)',
-                    border: '1px solid rgba(6, 182, 212, 0.25)',
+                    backgroundColor: 'var(--badge-info-bg)',
+                    border: '1px solid var(--badge-info-border)',
                     padding: '0.5rem 0.75rem',
                     borderRadius: '6px',
                     fontSize: '0.8rem',
@@ -1194,8 +1206,8 @@ export default function Findings() {
                     display: 'flex',
                     alignItems: 'center',
                     gap: '0.5rem',
-                    backgroundColor: 'rgba(236, 72, 153, 0.08)',
-                    border: '1px solid rgba(236, 72, 153, 0.25)',
+                    backgroundColor: 'var(--severity-secret-bg)',
+                    border: '1px solid var(--severity-secret-border)',
                     padding: '0.5rem 0.75rem',
                     borderRadius: '6px',
                     fontSize: '0.8rem',
@@ -1218,7 +1230,67 @@ export default function Findings() {
             );
           })}
         </div>
-      )}
+
+        {/* High-Performance Pagination Toolbar */}
+        {filteredFindings.length > itemsPerPage && (
+          <div style={{
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'space-between',
+            padding: '0.85rem 1.25rem',
+            backgroundColor: 'var(--bg-card)',
+            border: '1px solid var(--border-color)',
+            borderRadius: '8px',
+            flexWrap: 'wrap',
+            gap: '0.75rem',
+            marginTop: '1rem',
+          }}>
+            <div style={{ fontSize: '0.8rem', color: 'var(--text-muted)' }}>
+              Showing <strong style={{ color: 'var(--text-primary)' }}>{(currentPage - 1) * itemsPerPage + 1}</strong> to <strong style={{ color: 'var(--text-primary)' }}>{Math.min(currentPage * itemsPerPage, filteredFindings.length)}</strong> of <strong style={{ color: 'var(--text-primary)' }}>{filteredFindings.length}</strong> findings
+            </div>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+              <button
+                onClick={() => setCurrentPage((p) => Math.max(1, p - 1))}
+                disabled={currentPage === 1}
+                style={{
+                  padding: '0.35rem 0.75rem',
+                  backgroundColor: 'var(--bg-secondary)',
+                  border: '1px solid var(--border-color)',
+                  borderRadius: '6px',
+                  color: currentPage === 1 ? 'var(--text-muted)' : 'var(--text-primary)',
+                  fontSize: '0.75rem',
+                  fontWeight: 600,
+                  cursor: currentPage === 1 ? 'not-allowed' : 'pointer',
+                  transition: 'all 0.15s ease',
+                }}
+              >
+                Previous
+              </button>
+              <span style={{ fontSize: '0.8rem', color: 'var(--text-secondary)', padding: '0 0.5rem' }}>
+                Page {currentPage} of {totalPages}
+              </span>
+              <button
+                onClick={() => setCurrentPage((p) => Math.min(totalPages, p + 1))}
+                disabled={currentPage === totalPages}
+                style={{
+                  padding: '0.35rem 0.75rem',
+                  backgroundColor: 'var(--bg-secondary)',
+                  border: '1px solid var(--border-color)',
+                  borderRadius: '6px',
+                  color: currentPage === totalPages ? 'var(--text-muted)' : 'var(--text-primary)',
+                  fontSize: '0.75rem',
+                  fontWeight: 600,
+                  cursor: currentPage === totalPages ? 'not-allowed' : 'pointer',
+                  transition: 'all 0.15s ease',
+                }}
+              >
+                Next
+              </button>
+            </div>
+          </div>
+        )}
+      </>
+    )}
 
       {/* Vulnerability Lifecycle Status & Remediation Note Modal */}
       {statusModalFinding && (
@@ -1228,39 +1300,43 @@ export default function Findings() {
           left: 0,
           right: 0,
           bottom: 0,
-          backgroundColor: 'rgba(0, 0, 0, 0.7)',
+          backgroundColor: 'rgba(15, 23, 42, 0.45)',
+          backdropFilter: 'blur(8px)',
           display: 'flex',
           alignItems: 'center',
           justifyContent: 'center',
           zIndex: 100,
           padding: '1rem',
         }}>
-          <div style={{
-            backgroundColor: 'var(--bg-card)',
-            border: '1px solid var(--border-color)',
-            borderRadius: '12px',
-            width: '100%',
-            maxWidth: '560px',
-            maxHeight: '90vh',
-            overflowY: 'auto',
-            padding: '1.5rem',
-            display: 'flex',
-            flexDirection: 'column',
-            gap: '1.25rem',
-            boxShadow: '0 20px 25px -5px rgba(0, 0, 0, 0.5)',
-          }}>
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderBottom: '1px solid var(--border-color)', paddingBottom: '0.75rem' }}>
+          <div
+            className="card-prismatic"
+            style={{
+              backgroundColor: '#ffffff',
+              border: '1px solid var(--border-color)',
+              borderRadius: '16px',
+              width: '100%',
+              maxWidth: '560px',
+              maxHeight: '90vh',
+              overflowY: 'auto',
+              padding: '1.75rem',
+              display: 'flex',
+              flexDirection: 'column',
+              gap: '1.25rem',
+              boxShadow: '0 25px 50px -12px rgba(0, 0, 0, 0.15)',
+            }}
+          >
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderBottom: '1px solid var(--border-color)', paddingBottom: '0.85rem' }}>
               <div>
-                <h3 style={{ fontSize: '1.15rem', fontWeight: 700, color: 'var(--text-primary)' }}>
+                <h3 style={{ fontSize: '1.15rem', fontWeight: 700, color: 'var(--text-primary)', margin: 0 }}>
                   Update Finding Status
                 </h3>
-                <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>
+                <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)', marginTop: '0.2rem' }}>
                   Vulnerability Lifecycle Management
                 </div>
               </div>
               <button
                 onClick={() => setStatusModalFinding(null)}
-                style={{ background: 'none', border: 'none', color: 'var(--text-muted)', cursor: 'pointer' }}
+                style={{ background: 'none', border: 'none', color: 'var(--text-muted)', cursor: 'pointer', padding: '0.2rem', borderRadius: '4px' }}
               >
                 <X size={18} />
               </button>
@@ -1269,10 +1345,10 @@ export default function Findings() {
             {statusSuccessMsg && (
               <div style={{
                 padding: '0.75rem 1rem',
-                backgroundColor: 'rgba(16, 185, 129, 0.15)',
+                backgroundColor: 'rgba(16, 185, 129, 0.1)',
                 border: '1px solid rgba(16, 185, 129, 0.3)',
-                borderRadius: '6px',
-                color: 'var(--status-success)',
+                borderRadius: '8px',
+                color: '#059669',
                 fontSize: '0.85rem',
                 fontWeight: 600,
               }}>
@@ -1309,6 +1385,7 @@ export default function Findings() {
                     color: 'var(--text-primary)',
                     fontSize: '0.875rem',
                     outline: 'none',
+                    cursor: 'pointer',
                   }}
                 >
                   <option value="OPEN">🔴 Open (Triage Required)</option>
@@ -1372,11 +1449,11 @@ export default function Findings() {
                   type="button"
                   onClick={() => setStatusModalFinding(null)}
                   style={{
-                    padding: '0.6rem 1rem',
+                    padding: '0.6rem 1.15rem',
                     backgroundColor: 'var(--bg-secondary)',
                     border: '1px solid var(--border-color)',
                     color: 'var(--text-secondary)',
-                    borderRadius: '6px',
+                    borderRadius: '8px',
                     fontSize: '0.85rem',
                     fontWeight: 600,
                     cursor: 'pointer',
@@ -1387,12 +1464,11 @@ export default function Findings() {
                 <button
                   type="submit"
                   disabled={savingStatus}
+                  className="btn-primary-gradient"
                   style={{
-                    padding: '0.6rem 1.25rem',
-                    backgroundColor: 'var(--accent-cyan)',
+                    padding: '0.6rem 1.35rem',
                     border: 'none',
-                    color: '#ffffff',
-                    borderRadius: '6px',
+                    borderRadius: '8px',
                     fontSize: '0.85rem',
                     fontWeight: 600,
                     cursor: savingStatus ? 'not-allowed' : 'pointer',

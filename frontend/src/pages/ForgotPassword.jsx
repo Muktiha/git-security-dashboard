@@ -72,10 +72,10 @@ export default function ForgotPassword() {
         gap: '0.75rem',
         padding: '0.75rem 1rem',
         marginBottom: '1.25rem',
-        backgroundColor: 'rgba(234, 179, 8, 0.1)',
-        border: '1px solid rgba(234, 179, 8, 0.3)',
+        backgroundColor: 'var(--severity-medium-bg)',
+        border: '1px solid var(--severity-medium-border)',
         borderRadius: '8px',
-        color: '#facc15',
+        color: 'var(--severity-medium)',
         fontSize: '0.78rem',
         lineHeight: 1.4,
       }}>
@@ -93,8 +93,8 @@ export default function ForgotPassword() {
           gap: '0.5rem',
           padding: '0.75rem 1rem',
           marginBottom: '1.25rem',
-          backgroundColor: 'rgba(239, 68, 68, 0.1)',
-          border: '1px solid rgba(239, 68, 68, 0.3)',
+          backgroundColor: 'var(--severity-critical-bg)',
+          border: '1px solid var(--severity-critical-border)',
           borderRadius: '8px',
           color: 'var(--severity-critical)',
           fontSize: '0.85rem',
@@ -107,8 +107,8 @@ export default function ForgotPassword() {
       {success ? (
         <div style={{
           padding: '1.25rem',
-          backgroundColor: 'rgba(16, 185, 129, 0.1)',
-          border: '1px solid rgba(16, 185, 129, 0.3)',
+          backgroundColor: 'var(--status-success-bg)',
+          border: '1px solid var(--status-success-border)',
           borderRadius: '8px',
           display: 'flex',
           flexDirection: 'column',
@@ -120,17 +120,13 @@ export default function ForgotPassword() {
           </div>
           <Link
             to="/login"
+            className="btn-primary-gradient"
             style={{
-              display: 'inline-flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-              gap: '0.5rem',
-              padding: '0.75rem',
-              backgroundColor: 'var(--accent-cyan)',
-              color: '#ffffff',
-              fontWeight: 600,
-              fontSize: '0.875rem',
-              borderRadius: '8px',
+              padding: '0.8rem',
+              width: '100%',
+              fontSize: '0.9rem',
+              borderRadius: '10px',
+              border: 'none',
               textAlign: 'center',
               textDecoration: 'none',
             }}
@@ -253,24 +249,16 @@ export default function ForgotPassword() {
           <button
             type="submit"
             disabled={loading}
+            className="btn-primary-gradient"
             style={{
               marginTop: '0.5rem',
-              padding: '0.75rem',
-              backgroundColor: loading ? '#0284c7' : 'var(--accent-cyan)',
-              color: '#ffffff',
-              fontWeight: 600,
-              fontSize: '0.875rem',
-              borderRadius: '8px',
+              padding: '0.8rem',
+              width: '100%',
+              fontSize: '0.9rem',
+              borderRadius: '10px',
               border: 'none',
               opacity: loading ? 0.75 : 1,
               cursor: loading ? 'not-allowed' : 'pointer',
-              transition: 'all 0.15s ease',
-            }}
-            onMouseEnter={(e) => {
-              if (!loading) e.currentTarget.style.opacity = '0.9';
-            }}
-            onMouseLeave={(e) => {
-              if (!loading) e.currentTarget.style.opacity = '1';
             }}
           >
             {loading ? 'Resetting Password...' : 'Reset Password'}

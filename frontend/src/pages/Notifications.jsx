@@ -92,13 +92,27 @@ export default function Notifications() {
       {/* Header */}
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '1rem' }}>
         <div>
-          <div style={{ display: 'flex', alignItems: 'center', gap: '0.6rem' }}>
-            <Bell size={24} color="var(--accent-cyan)" />
-            <h1 style={{ fontSize: '1.75rem', fontWeight: 700, color: 'var(--text-primary)' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
+            <div
+              style={{
+                width: '38px',
+                height: '38px',
+                borderRadius: '10px',
+                background: 'var(--gradient-primary)',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                color: '#ffffff',
+                boxShadow: 'var(--glow-primary)',
+              }}
+            >
+              <Bell size={20} />
+            </div>
+            <h1 style={{ fontSize: '1.85rem', fontWeight: 800, color: 'var(--text-primary)', letterSpacing: '-0.025em', margin: 0 }}>
               Security Notification Center
             </h1>
           </div>
-          <p style={{ fontSize: '0.875rem', color: 'var(--text-secondary)', marginTop: '0.25rem' }}>
+          <p style={{ fontSize: '0.875rem', color: 'var(--text-secondary)', marginTop: '0.45rem', marginBottom: 0 }}>
             In-app security alerts for critical vulnerabilities, secret leaks, scan terminations, and status updates.
           </p>
         </div>
@@ -111,15 +125,25 @@ export default function Notifications() {
               style={{
                 display: 'inline-flex',
                 alignItems: 'center',
-                gap: '0.4rem',
-                padding: '0.55rem 1rem',
-                backgroundColor: 'var(--bg-card)',
+                gap: '0.45rem',
+                padding: '0.6rem 1.15rem',
+                backgroundColor: '#ffffff',
                 border: '1px solid var(--border-color)',
-                color: 'var(--accent-cyan)',
-                borderRadius: '8px',
+                color: 'var(--accent-primary)',
+                borderRadius: '10px',
                 fontSize: '0.85rem',
                 fontWeight: 600,
                 cursor: 'pointer',
+                boxShadow: '0 1px 3px rgba(0, 0, 0, 0.04)',
+                transition: 'all 0.2s cubic-bezier(0.16, 1, 0.3, 1)',
+              }}
+              onMouseEnter={(e) => {
+                e.currentTarget.style.borderColor = 'var(--accent-primary)';
+                e.currentTarget.style.boxShadow = '0 4px 12px rgba(37, 99, 235, 0.12)';
+              }}
+              onMouseLeave={(e) => {
+                e.currentTarget.style.borderColor = 'var(--border-color)';
+                e.currentTarget.style.boxShadow = '0 1px 3px rgba(0, 0, 0, 0.04)';
               }}
             >
               <CheckCheck size={16} />
@@ -133,15 +157,25 @@ export default function Notifications() {
             style={{
               display: 'inline-flex',
               alignItems: 'center',
-              gap: '0.4rem',
-              padding: '0.55rem 1rem',
-              backgroundColor: 'var(--bg-card)',
+              gap: '0.45rem',
+              padding: '0.6rem 1.15rem',
+              backgroundColor: '#ffffff',
               border: '1px solid var(--border-color)',
-              color: 'var(--text-secondary)',
-              borderRadius: '8px',
+              color: 'var(--text-primary)',
+              borderRadius: '10px',
               fontSize: '0.85rem',
               fontWeight: 600,
               cursor: 'pointer',
+              boxShadow: '0 1px 3px rgba(0, 0, 0, 0.04)',
+              transition: 'all 0.2s cubic-bezier(0.16, 1, 0.3, 1)',
+            }}
+            onMouseEnter={(e) => {
+              e.currentTarget.style.borderColor = 'var(--accent-primary)';
+              e.currentTarget.style.boxShadow = '0 4px 12px rgba(37, 99, 235, 0.12)';
+            }}
+            onMouseLeave={(e) => {
+              e.currentTarget.style.borderColor = 'var(--border-color)';
+              e.currentTarget.style.boxShadow = '0 1px 3px rgba(0, 0, 0, 0.04)';
             }}
           >
             <RefreshCw size={15} style={loading ? { animation: 'spin 1s linear infinite' } : {}} />
@@ -155,14 +189,16 @@ export default function Notifications() {
         <button
           onClick={() => setFilter('ALL')}
           style={{
-            padding: '0.45rem 1rem',
-            borderRadius: '6px',
+            padding: '0.5rem 1.15rem',
+            borderRadius: '8px',
             fontSize: '0.825rem',
             fontWeight: 600,
-            backgroundColor: filter === 'ALL' ? 'var(--accent-cyan)' : 'var(--bg-card)',
-            color: filter === 'ALL' ? '#ffffff' : 'var(--text-secondary)',
-            border: filter === 'ALL' ? '1px solid var(--accent-cyan)' : '1px solid var(--border-color)',
+            backgroundColor: filter === 'ALL' ? 'rgba(37, 99, 235, 0.1)' : '#ffffff',
+            color: filter === 'ALL' ? 'var(--accent-primary)' : 'var(--text-secondary)',
+            border: filter === 'ALL' ? '1px solid rgba(37, 99, 235, 0.25)' : '1px solid var(--border-color)',
+            boxShadow: '0 1px 2px rgba(0, 0, 0, 0.03)',
             cursor: 'pointer',
+            transition: 'all 0.2s cubic-bezier(0.16, 1, 0.3, 1)',
           }}
         >
           All Notifications ({notifications.length})
@@ -170,14 +206,16 @@ export default function Notifications() {
         <button
           onClick={() => setFilter('UNREAD')}
           style={{
-            padding: '0.45rem 1rem',
-            borderRadius: '6px',
+            padding: '0.5rem 1.15rem',
+            borderRadius: '8px',
             fontSize: '0.825rem',
             fontWeight: 600,
-            backgroundColor: filter === 'UNREAD' ? 'var(--accent-cyan)' : 'var(--bg-card)',
-            color: filter === 'UNREAD' ? '#ffffff' : 'var(--text-secondary)',
-            border: filter === 'UNREAD' ? '1px solid var(--accent-cyan)' : '1px solid var(--border-color)',
+            backgroundColor: filter === 'UNREAD' ? 'rgba(37, 99, 235, 0.1)' : '#ffffff',
+            color: filter === 'UNREAD' ? 'var(--accent-primary)' : 'var(--text-secondary)',
+            border: filter === 'UNREAD' ? '1px solid rgba(37, 99, 235, 0.25)' : '1px solid var(--border-color)',
+            boxShadow: '0 1px 2px rgba(0, 0, 0, 0.03)',
             cursor: 'pointer',
+            transition: 'all 0.2s cubic-bezier(0.16, 1, 0.3, 1)',
           }}
         >
           Unread Only ({unreadCount})
@@ -185,12 +223,16 @@ export default function Notifications() {
       </div>
 
       {/* Notifications List Container */}
-      <div style={{
-        backgroundColor: 'var(--bg-card)',
-        border: '1px solid var(--border-color)',
-        borderRadius: '12px',
-        overflow: 'hidden',
-      }}>
+      <div
+        className="card-prismatic"
+        style={{
+          backgroundColor: 'var(--bg-card)',
+          border: '1px solid var(--border-color)',
+          borderRadius: '16px',
+          overflow: 'hidden',
+          boxShadow: 'var(--card-shadow)',
+        }}
+      >
         {loading ? (
           <div style={{ padding: '3.5rem', textAlign: 'center', color: 'var(--text-secondary)' }}>
             <RefreshCw size={24} style={{ animation: 'spin 1s linear infinite', marginBottom: '0.5rem' }} />
@@ -220,7 +262,7 @@ export default function Notifications() {
                 style={{
                   padding: '1.15rem 1.25rem',
                   borderBottom: '1px solid var(--border-color)',
-                  backgroundColor: n.isRead ? 'transparent' : 'rgba(14, 165, 233, 0.04)',
+                  backgroundColor: n.isRead ? 'transparent' : '#f0f9ff',
                   display: 'flex',
                   alignItems: 'flex-start',
                   gap: '1rem',
