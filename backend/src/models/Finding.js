@@ -106,6 +106,11 @@ const findingSchema = new mongoose.Schema(
   }
 );
 
+// Indexes for high-performance query optimization
+findingSchema.index({ repositoryId: 1, createdAt: -1 });
+findingSchema.index({ scanId: 1 });
+findingSchema.index({ repositoryId: 1, status: 1, severity: 1 });
+
 const Finding = mongoose.model('Finding', findingSchema);
 
 export default Finding;

@@ -79,7 +79,8 @@ export const getRepositories = async (req, res, next) => {
   try {
     // Scoped strictly to authenticated user's ID
     const repositories = await Repository.find({ userId: req.user.id })
-      .sort({ createdAt: -1 });
+      .sort({ createdAt: -1 })
+      .lean();
 
     return res.status(200).json({
       success: true,
@@ -112,7 +113,7 @@ export const getRepository = async (req, res, next) => {
     const repository = await Repository.findOne({
       _id: id,
       userId: req.user.id,
-    });
+    }).lean();
 
     if (!repository) {
       return res.status(404).json({

@@ -64,6 +64,10 @@ const scanSchema = new mongoose.Schema(
   }
 );
 
+// Indexes for high-performance query optimization
+scanSchema.index({ repositoryId: 1, createdAt: -1 });
+scanSchema.index({ repositoryId: 1, status: 1 });
+
 const Scan = mongoose.model('Scan', scanSchema);
 
 export default Scan;

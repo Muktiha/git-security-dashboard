@@ -6,17 +6,18 @@ import Notification from '../models/Notification.js';
  */
 export const getUserNotifications = async (req, res) => {
   try {
-    const notifications = await Notification.find({ userId: req.user.id })
-      .populate('repositoryId', 'name owner url')
-      .populate('scanId', 'status totalFindings completedAt')
-      .sort({ createdAt: -1 })
-      .limit(50)
-      .lean();
-
-    const unreadCount = await Notification.countDocuments({
-      userId: req.user.id,
-      isRead: false,
-    });
+    const [notifications, unreadCount] = await Promise.all([
+      Notification.find({ userId: req.user.id })
+        .populate('repositoryId', 'name owner url')
+        .populate('scanId', 'status totalFindings completedAt')
+        .sort({ createdAt: -1 })
+        .limit(50)
+        .lean(),
+      Notification.countDocuments({
+        userId: req.user.id,
+        isRead: false,
+      }),
+    ]);
 
     return res.status(200).json({
       success: true,

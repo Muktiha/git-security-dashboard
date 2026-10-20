@@ -44,6 +44,7 @@ const repositorySchema = new mongoose.Schema({
 
 // Ensure a user cannot duplicate the exact same repository under their account
 repositorySchema.index({ userId: 1, url: 1 }, { unique: true });
+repositorySchema.index({ userId: 1, createdAt: -1 });
 
 const Repository = mongoose.model('Repository', repositorySchema);
 

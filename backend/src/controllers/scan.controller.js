@@ -599,23 +599,23 @@ export const getAllFindings = async (req, res) => {
       ? repoIds.filter((id) => id.toString() === repositoryId)
       : repoIds;
 
-    // Fetch findings populated with repository and scan details
-    const findings = await Finding.find({ repositoryId: { $in: targetRepoIds } })
-      .populate('repositoryId', 'name owner url branch')
-      .populate('scanId', 'status completedAt duration failureReason totalFindings criticalCount highCount mediumCount lowCount')
-      .sort({ createdAt: -1 })
-      .lean();
-
-    // Fetch latest scan for each repository to determine scan status (completed vs failed)
-    const latestScans = await Scan.aggregate([
-      { $match: { repositoryId: { $in: repoIds } } },
-      { $sort: { createdAt: -1 } },
-      {
-        $group: {
-          _id: '$repositoryId',
-          latestScan: { $first: '$$ROOT' },
+    // Fetch findings and latest scan aggregation concurrently
+    const [findings, latestScans] = await Promise.all([
+      Finding.find({ repositoryId: { $in: targetRepoIds } })
+        .populate('repositoryId', 'name owner url branch')
+        .populate('scanId', 'status completedAt duration failureReason totalFindings criticalCount highCount mediumCount lowCount')
+        .sort({ createdAt: -1 })
+        .lean(),
+      Scan.aggregate([
+        { $match: { repositoryId: { $in: repoIds } } },
+        { $sort: { createdAt: -1 } },
+        {
+          $group: {
+            _id: '$repositoryId',
+            latestScan: { $first: '$$ROOT' },
+          },
         },
-      },
+      ]),
     ]);
 
     const latestScanMap = {};
@@ -703,7 +703,10 @@ export const getDashboardStats = async (req, res) => {
   try {
     const { repositoryId, timeRange, severity, scanner, status } = req.query;
 
-    const userRepos = await Repository.find({ userId: req.user.id }).sort({ createdAt: -1 });
+    const userRepos = await Repository.find({ userId: req.user.id })
+      .select('_id name owner url branch lastScannedAt createdAt')
+      .sort({ createdAt: -1 })
+      .lean();
     const repoIds = userRepos.map((r) => r._id);
 
     // Apply repository filter if passed
@@ -735,27 +738,29 @@ export const getDashboardStats = async (req, res) => {
       findingQuery.status = status.toUpperCase();
     }
 
-    // Fetch findings
-    const findings = await Finding.find(findingQuery)
-      .populate('repositoryId', 'name owner branch url')
-      .lean();
-
-    // Fetch all user scans
     const scanQuery = { repositoryId: { $in: targetRepoIds } };
     if (dateFilter) {
       scanQuery.createdAt = { $gte: dateFilter };
     }
-    const scans = await Scan.find(scanQuery)
-      .populate('repositoryId', 'name owner branch url')
-      .sort({ createdAt: -1 })
-      .lean();
 
-    // Fetch user notifications for recent activity feed
-    const notifications = await Notification.find({ userId: req.user.id })
-      .populate('repositoryId', 'name owner')
-      .sort({ createdAt: -1 })
-      .limit(10)
-      .lean();
+    // Fetch findings, scans, and notifications in parallel with field projections
+    const [findings, scans, notifications] = await Promise.all([
+      Finding.find(findingQuery)
+        .select('_id repositoryId scanner severity status createdAt')
+        .populate('repositoryId', 'name owner branch url')
+        .lean(),
+      Scan.find(scanQuery)
+        .select('_id repositoryId status duration failureReason totalFindings criticalCount highCount mediumCount lowCount startedAt completedAt createdAt')
+        .populate('repositoryId', 'name owner branch url')
+        .sort({ createdAt: -1 })
+        .lean(),
+      Notification.find({ userId: req.user.id })
+        .select('_id userId repositoryId scanId type title message link isRead createdAt')
+        .populate('repositoryId', 'name owner')
+        .sort({ createdAt: -1 })
+        .limit(10)
+        .lean(),
+    ]);
 
     // 1. Compute Summary Metrics
     const totalRepos = userRepos.length;
