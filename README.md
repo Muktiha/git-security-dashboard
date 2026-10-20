@@ -124,69 +124,80 @@ The application follows a decoupled three-tier architecture:
 
 ```mermaid
 flowchart TD
-    User(["Security Analyst / Developer"])
-    
-    subgraph Frontend ["Frontend (React 19 + Vite @ Port 5173)"]
-        UI_Dash["Command Center & Analytics\n(Recharts Telemetry)"]
-        UI_Repo["Repository Management\n(Add, Scan, Delete)"]
-        UI_Find["Findings & Triage Modal\n(Lifecycle Updates)"]
-        UI_Hist["Scan History & Comparator\n(Differential Diffs)"]
-        UI_PDF["jsPDF Engine\n(Client-Side Audit Reports)"]
-        AxiosClient["Axios HTTP Client\n(JWT Interceptors & Auto-Logout)"]
+    User["Security Analyst / Reviewer"]
+
+    subgraph Frontend["Frontend Layer (React 19 & Vite)"]
+        UI_Dash["Command Center Dashboard<br/>(Metrics, Freshness & Trends)"]
+        UI_Repo["Repository Management<br/>(Add, Scan, Delete)"]
+        UI_Find["Security Findings & Triage<br/>(Lifecycle Status Updates)"]
+        UI_Hist["Scan History & Comparator<br/>(Two-Scan Differential Diffs)"]
+        UI_PDF["jsPDF Engine<br/>(Client-Side Audit PDF Export)"]
+        AxiosClient["Axios API Client<br/>(JWT Interceptors & Auto-Logout)"]
     end
 
-    subgraph Backend ["Backend API (Express.js @ Port 5000)"]
-        AuthMiddleware["JWT Auth Middleware\n(Bearer Token Verification)"]
-        RepoCtrl["Repository Controller\n(GitHub URL Validation)"]
-        ScanCtrl["Scan Orchestrator Controller\n(Clone, Run, Normalize, Score)"]
-        FindingCtrl["Findings Controller\n(Lifecycle Audit Trail)"]
-        NotifCtrl["Notification Controller\n(Alerts & Unread Badges)"]
+    subgraph Backend["Backend API Layer (Express.js & Node.js)"]
+        AuthMiddleware["JWT Authentication Middleware<br/>(Bearer Token Verification)"]
+        RepoCtrl["Repository Controller<br/>(Validation & User Scoping)"]
+        ScanCtrl["Scan Orchestrator Controller<br/>(Clone, Execute, Normalize, Score)"]
+        FindingCtrl["Findings Controller<br/>(Lifecycle Audit Trail & Triage)"]
+        NotifCtrl["Notification Controller<br/>(In-App Security Alerts)"]
     end
 
-    subgraph SecurityEngines ["Local Execution Sandbox (Temporary FS)"]
-        GitProc["git clone --depth 1\n(Terminal Prompt Disabled)"]
-        GitleaksProc["Gitleaks CLI\n(Secret Detection)"]
-        TrivyProc["Trivy CLI\n(SCA Vulnerability Scan)"]
+    subgraph SecurityEngines["Execution Sandbox (Host CLI Engines)"]
+        GitProc["Git CLI<br/>(git clone --depth 1)"]
+        GitleaksProc["Gitleaks Engine<br/>(Secret & Credential Detection)"]
+        TrivyProc["Trivy Engine<br/>(SCA Vulnerability Detection)"]
+        TempFS["Temporary Filesystem<br/>(Wiped After Scan Completion)"]
     end
 
-    subgraph Storage ["Database (MongoDB Atlas)"]
-        UsersCol[("Users Collection\n(bcrypt Password Hashes)")]
-        ReposCol[("Repositories Collection\n(User Scoped)")]
-        ScansCol[("Scans Collection\n(Execution Metrics)")]
-        FindingsCol[("Findings Collection\n(Fingerprints & Status)")]
-        NotifsCol[("Notifications Collection\n(In-App Events)")]
+    subgraph Storage["Database Layer (MongoDB Atlas)"]
+        UsersCol[("Users Collection<br/>(bcrypt Password Hashes)")]
+        ReposCol[("Repositories Collection<br/>(Tracked Assets)")]
+        ScansCol[("Scans Collection<br/>(Execution Records)")]
+        FindingsCol[("Findings Collection<br/>(Normalized Findings)")]
+        NotifsCol[("Notifications Collection<br/>(System Alerts)")]
     end
 
-    User -->|Interacts with UI| Frontend
-    Frontend --> AxiosClient
-    AxiosClient -->|REST API Requests /api/*| AuthMiddleware
-    
+    %% User Interactions
+    User -->|Accesses Platform| UI_Dash
+    User -->|Manages Assets| UI_Repo
+    User -->|Triages Issues| UI_Find
+    User -->|Compares Scans| UI_Hist
+    UI_Find -->|Exports Report| UI_PDF
+
+    %% Frontend to Backend API
+    UI_Dash --> AxiosClient
+    UI_Repo --> AxiosClient
+    UI_Find --> AxiosClient
+    UI_Hist --> AxiosClient
+    AxiosClient -->|REST API Requests with JWT| AuthMiddleware
+
+    %% Backend Controllers
     AuthMiddleware --> RepoCtrl
     AuthMiddleware --> ScanCtrl
     AuthMiddleware --> FindingCtrl
     AuthMiddleware --> NotifCtrl
 
-    RepoCtrl <--> ReposCol
-    FindingCtrl <--> FindingsCol
-    NotifCtrl <--> NotifsCol
+    %% Repository Management Flow
+    RepoCtrl -->|Reads & Writes| ReposCol
+    FindingCtrl -->|Updates Status & Notes| FindingsCol
+    NotifCtrl -->|Reads & Marks Read| NotifsCol
 
+    %% Scanning Workflow
     ScanCtrl -->|1. Shallow Clone| GitProc
-    GitProc -->|Checkout Repo| SecurityEngines
-    ScanCtrl -->|2. Concurrently Spawn| GitleaksProc
-    ScanCtrl -->|3. Concurrently Spawn| TrivyProc
-    
-    GitleaksProc -->|JSON Output| ScanCtrl
-    TrivyProc -->|JSON Output| ScanCtrl
-    
-    ScanCtrl -->|4. Mask Secrets & Normalize| FindingsCol
-    ScanCtrl -->|5. Record Duration & Summary| ScansCol
-    ScanCtrl -->|6. Trigger Alerts| NotifsCol
-    ScanCtrl -->|7. Wipe Temp Files| SecurityEngines
+    GitProc -->|Checkout Repo| TempFS
+    ScanCtrl -->|2. Concurrent Scan| GitleaksProc
+    ScanCtrl -->|3. Concurrent Scan| TrivyProc
+    GitleaksProc -->|Read Files| TempFS
+    TrivyProc -->|Read Files| TempFS
+    GitleaksProc -->|Report JSON| ScanCtrl
+    TrivyProc -->|Report JSON| ScanCtrl
 
-    FindingsCol -.->|Aggregate Findings| UI_Find
-    ScansCol -.->|Historical Trends| UI_Hist
-    FindingsCol -.->|Score & Charts| UI_Dash
-    FindingsCol -.->|Export Data| UI_PDF
+    %% Persistence
+    ScanCtrl -->|4. Store Findings| FindingsCol
+    ScanCtrl -->|5. Record Summary & Score| ScansCol
+    ScanCtrl -->|6. Trigger Alerts| NotifsCol
+    ScanCtrl -->|7. Clean Up Directory| TempFS
 ```
 
 ---
