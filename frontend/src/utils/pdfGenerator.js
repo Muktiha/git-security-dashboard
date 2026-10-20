@@ -292,6 +292,8 @@ export const downloadSecurityReportPDF = ({
         : sanitizeText(f.identifier || 'Dependency Package');
       
       const description = sanitizeText(f.description || 'No detailed description available.');
+      const status = sanitizeText(f.status || 'OPEN');
+      const noteStr = f.remediationNote ? `\nStatus Note: ${sanitizeText(f.remediationNote)}` : '';
       const remediation = sanitizeText(
         f.remediation || 
         (isSecret
@@ -299,7 +301,7 @@ export const downloadSecurityReportPDF = ({
           : 'Upgrade package to a non-vulnerable version or apply security patch.')
       );
 
-      const detailsCell = `${description}\nRemediation: ${remediation}`;
+      const detailsCell = `Status: [${status}]${noteStr}\n${description}\nRemediation: ${remediation}`;
 
       return [
         String(index + 1),
@@ -399,5 +401,191 @@ export const downloadSecurityReportPDF = ({
   // 7. Save and trigger browser download
   doc.save(filename);
 
+  return filename;
+};
+
+/**
+ * Generates and downloads an Executive Security Posture Summary PDF.
+ */
+export const downloadExecutiveDashboardPDF = ({ stats, repositoryRiskTable = [], recommendedActions = [] }) => {
+  const doc = new jsPDF({
+    orientation: 'portrait',
+    unit: 'mm',
+    format: 'a4',
+  });
+
+  const pageWidth = doc.internal.pageSize.getWidth();
+  const pageHeight = doc.internal.pageSize.getHeight();
+  const margin = 14;
+  const printableWidth = pageWidth - margin * 2;
+
+  const colors = {
+    primaryDark: [15, 23, 42],    // #0f172a
+    primaryCyan: [6, 182, 212],    // #06b6d4
+    textDark: [30, 41, 59],        // #1e293b
+    textMuted: [100, 116, 139],    // #64748b
+    cardBg: [248, 250, 252],       // #f8fafc
+    cardBorder: [226, 232, 240],   // #e2e8f0
+    critical: [239, 68, 68],       // #ef4444
+    high: [249, 115, 22],          // #f97316
+    medium: [234, 179, 8],         // #eab308
+    low: [59, 130, 246],           // #3b82f6
+    clean: [16, 185, 129],         // #10b981
+  };
+
+  let currentY = 16;
+
+  // Header Banner
+  doc.setFillColor(...colors.primaryDark);
+  doc.roundedRect(margin, currentY, printableWidth, 24, 2, 2, 'F');
+
+  doc.setFont('helvetica', 'bold');
+  doc.setFontSize(14);
+  doc.setTextColor(255, 255, 255);
+  doc.text('DEVSECOPS EXECUTIVE SECURITY SUMMARY', margin + 8, currentY + 10);
+
+  doc.setFont('helvetica', 'normal');
+  doc.setFontSize(8);
+  doc.setTextColor(...colors.primaryCyan);
+  doc.text('SIH-Aligned Distributed Git Repository Security Scan Dashboard', margin + 8, currentY + 17);
+
+  doc.setFontSize(7.5);
+  doc.setTextColor(200, 210, 225);
+  doc.text(`Generated: ${new Date().toLocaleString()}`, pageWidth - margin - 8, currentY + 14, { align: 'right' });
+
+  currentY += 30;
+
+  // Posture Key Metrics Cards
+  const colWidth = (printableWidth - 6) / 3;
+  const cardHeight = 20;
+
+  // Card 1: Health Score
+  doc.setFillColor(...colors.cardBg);
+  doc.setDrawColor(...colors.cardBorder);
+  doc.roundedRect(margin, currentY, colWidth, cardHeight, 1.5, 1.5, 'FD');
+  doc.setFont('helvetica', 'bold');
+  doc.setFontSize(7);
+  doc.setTextColor(...colors.textMuted);
+  doc.text('HEALTH SCORE', margin + 4, currentY + 6);
+  doc.setFontSize(13);
+  doc.setTextColor(...colors.clean);
+  doc.text(`${stats?.healthScore || '100%'} (Grade ${stats?.healthGrade || 'A'})`, margin + 4, currentY + 14);
+
+  // Card 2: Open Critical Issues
+  doc.setFillColor(...colors.cardBg);
+  doc.roundedRect(margin + colWidth + 3, currentY, colWidth, cardHeight, 1.5, 1.5, 'FD');
+  doc.setFont('helvetica', 'bold');
+  doc.setFontSize(7);
+  doc.setTextColor(...colors.textMuted);
+  doc.text('OPEN CRITICAL FINDINGS', margin + colWidth + 7, currentY + 6);
+  doc.setFontSize(13);
+  doc.setTextColor(...colors.critical);
+  doc.text(String(stats?.openCriticalFindings || 0), margin + colWidth + 7, currentY + 14);
+
+  // Card 3: Tracked & Fresh Repositories
+  doc.setFillColor(...colors.cardBg);
+  doc.roundedRect(margin + (colWidth + 3) * 2, currentY, colWidth, cardHeight, 1.5, 1.5, 'FD');
+  doc.setFont('helvetica', 'bold');
+  doc.setFontSize(7);
+  doc.setTextColor(...colors.textMuted);
+  doc.text('TRACKED REPOSITORIES', margin + (colWidth + 3) * 2 + 4, currentY + 6);
+  doc.setFontSize(13);
+  doc.setTextColor(...colors.primaryDark);
+  doc.text(`${stats?.totalRepositories || 0} (${stats?.freshness?.fresh || 0} Fresh)`, margin + (colWidth + 3) * 2 + 4, currentY + 14);
+
+  currentY += 26;
+
+  // Section: Repository Risk Matrix
+  doc.setFont('helvetica', 'bold');
+  doc.setFontSize(10);
+  doc.setTextColor(...colors.primaryDark);
+  doc.text('Repository Security Posture Breakdown', margin, currentY);
+
+  currentY += 4;
+
+  const tableData = repositoryRiskTable.map((r, idx) => [
+    String(idx + 1),
+    r.fullName || r.name,
+    r.branch || 'main',
+    r.score !== null ? `${r.score}% (${r.grade})` : 'Pending/Failed',
+    String(r.openCriticalCount || 0),
+    String(r.openHighCount || 0),
+    r.freshness === 'FRESH' ? 'Fresh' : r.freshness === 'STALE' ? 'Stale (>7d)' : 'Never Scanned',
+    r.scanStatus || 'PENDING',
+  ]);
+
+  autoTable(doc, {
+    startY: currentY,
+    margin: { left: margin, right: margin, bottom: 16 },
+    head: [['#', 'Repository', 'Branch', 'Score', 'Crit', 'High', 'Hygiene', 'Status']],
+    body: tableData,
+    theme: 'grid',
+    styles: {
+      fontSize: 7.5,
+      cellPadding: 2,
+      textColor: colors.textDark,
+      lineColor: colors.cardBorder,
+      lineWidth: 0.15,
+    },
+    headStyles: {
+      fillColor: colors.primaryDark,
+      textColor: [255, 255, 255],
+      fontStyle: 'bold',
+      fontSize: 7.5,
+    },
+    columnStyles: {
+      0: { cellWidth: 7, halign: 'center' },
+      1: { cellWidth: 48 },
+      2: { cellWidth: 20 },
+      3: { cellWidth: 26, fontStyle: 'bold' },
+      4: { cellWidth: 14, halign: 'center', textColor: colors.critical },
+      5: { cellWidth: 14, halign: 'center', textColor: colors.high },
+      6: { cellWidth: 25 },
+      7: { cellWidth: 28, halign: 'center' },
+    },
+  });
+
+  currentY = doc.lastAutoTable.finalY + 8;
+
+  // Section: Recommended Actions
+  if (recommendedActions.length > 0 && currentY < pageHeight - 40) {
+    doc.setFont('helvetica', 'bold');
+    doc.setFontSize(9.5);
+    doc.setTextColor(...colors.primaryDark);
+    doc.text('Top Priority Action Items', margin, currentY);
+    currentY += 5;
+
+    recommendedActions.slice(0, 4).forEach((act) => {
+      if (currentY > pageHeight - 20) return;
+      doc.setFont('helvetica', 'bold');
+      doc.setFontSize(7.5);
+      doc.setTextColor(act.priority === 'CRITICAL' ? colors.critical[0] : colors.primaryDark[0], act.priority === 'CRITICAL' ? colors.critical[1] : colors.primaryDark[1], act.priority === 'CRITICAL' ? colors.critical[2] : colors.primaryDark[2]);
+      doc.text(`• [${act.priority}] ${act.title}`, margin + 2, currentY);
+      currentY += 4;
+      doc.setFont('helvetica', 'normal');
+      doc.setFontSize(7);
+      doc.setTextColor(...colors.textMuted);
+      doc.text(act.description, margin + 5, currentY);
+      currentY += 5;
+    });
+  }
+
+  // Running Page Footers
+  const totalPages = doc.getNumberOfPages();
+  for (let i = 1; i <= totalPages; i++) {
+    doc.setPage(i);
+    doc.setDrawColor(...colors.cardBorder);
+    doc.line(margin, pageHeight - 11, pageWidth - margin, pageHeight - 11);
+
+    doc.setFont('helvetica', 'normal');
+    doc.setFontSize(7);
+    doc.setTextColor(...colors.textMuted);
+    doc.text('Git Repository Security Scan Dashboard • DevSecOps Command Center Executive Summary', margin, pageHeight - 6);
+    doc.text(`Page ${i} of ${totalPages}`, pageWidth - margin, pageHeight - 6, { align: 'right' });
+  }
+
+  const dateStamp = new Date().toISOString().split('T')[0];
+  const filename = `security-executive-summary-${dateStamp}.pdf`;
+  doc.save(filename);
   return filename;
 };

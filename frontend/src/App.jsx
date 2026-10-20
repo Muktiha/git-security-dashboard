@@ -12,6 +12,10 @@ import ForgotPassword from './pages/ForgotPassword';
 import Dashboard from './pages/Dashboard';
 import Repositories from './pages/Repositories';
 import Findings from './pages/Findings';
+import Analytics from './pages/Analytics';
+import ScanHistory from './pages/ScanHistory';
+import Notifications from './pages/Notifications';
+import Settings from './pages/Settings';
 
 export default function App() {
   return (
@@ -29,7 +33,12 @@ export default function App() {
         <Route element={<DashboardLayout />}>
           <Route path="/dashboard" element={<Dashboard />} />
           <Route path="/repositories" element={<Repositories />} />
+          <Route path="/scans" element={<Repositories />} />
           <Route path="/findings" element={<Findings />} />
+          <Route path="/analytics" element={<Analytics />} />
+          <Route path="/scan-history" element={<ScanHistory />} />
+          <Route path="/notifications" element={<Notifications />} />
+          <Route path="/settings" element={<Settings />} />
         </Route>
 
         {/* Fallbacks */}

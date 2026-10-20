@@ -15,9 +15,13 @@ import {
   FileDown,
   ArrowLeft,
   X,
-  CheckCircle2,
+  CheckCircle2, 
   AlertTriangle,
-  Wrench
+  Wrench,
+  Edit3,
+  Clock,
+  MessageSquare,
+  History
 } from 'lucide-react';
 import { Link, useSearchParams, useNavigate } from 'react-router-dom';
 import api from '../services/api';
@@ -60,7 +64,16 @@ export default function Findings() {
   const [error, setError] = useState('');
   const [scanNotFound, setScanNotFound] = useState(false);
   const [filter, setFilter] = useState('ALL');
+  const [statusFilter, setStatusFilter] = useState('ALL');
+  const [severityFilter, setSeverityFilter] = useState('ALL');
   const [searchQuery, setSearchQuery] = useState('');
+
+  // Status Update Modal State
+  const [statusModalFinding, setStatusModalFinding] = useState(null);
+  const [modalStatus, setModalStatus] = useState('OPEN');
+  const [modalNote, setModalNote] = useState('');
+  const [savingStatus, setSavingStatus] = useState(false);
+  const [statusSuccessMsg, setStatusSuccessMsg] = useState('');
 
   // PDF Export Feedback State
   const [pdfDownloading, setPdfDownloading] = useState(false);
@@ -133,7 +146,7 @@ export default function Findings() {
   const completedReposWithScans = relevantRepos.filter((r) => r.latestScan?.status === 'COMPLETED');
   const hasEverScanned = Boolean(selectedScan) || relevantRepos.some((r) => r.lastScannedAt !== null);
 
-  // Filter findings based on active tab and search query
+  // Filter findings based on active tab, status, severity, and search query
   const filteredFindings = findings.filter((finding) => {
     // If not in single-scan mode and repository filter is active
     if (!selectedScan && selectedRepoId !== 'ALL') {
@@ -150,6 +163,17 @@ export default function Findings() {
     if (filter === 'VULNERABILITIES' && !isVuln) return false;
     if (filter === 'CRITICAL' && finding.severity !== 'CRITICAL') return false;
 
+    // Status filter
+    const currentStatus = finding.status || 'OPEN';
+    if (statusFilter !== 'ALL' && currentStatus !== statusFilter) {
+      return false;
+    }
+
+    // Severity filter
+    if (severityFilter !== 'ALL' && (finding.severity || '').toUpperCase() !== severityFilter) {
+      return false;
+    }
+
     if (searchQuery.trim()) {
       const query = searchQuery.toLowerCase();
       const repoName = finding.repositoryId 
@@ -161,14 +185,53 @@ export default function Findings() {
       const matchRepo = repoName.includes(query);
       const matchDesc = (finding.description || '').toLowerCase().includes(query);
       const matchRemediation = (finding.remediation || '').toLowerCase().includes(query);
+      const matchStatus = currentStatus.toLowerCase().includes(query);
+      const matchNote = (finding.remediationNote || '').toLowerCase().includes(query);
 
-      if (!matchTitle && !matchFile && !matchId && !matchRepo && !matchDesc && !matchRemediation) {
+      if (!matchTitle && !matchFile && !matchId && !matchRepo && !matchDesc && !matchRemediation && !matchStatus && !matchNote) {
         return false;
       }
     }
 
     return true;
   });
+
+  const handleOpenStatusModal = (finding) => {
+    setStatusModalFinding(finding);
+    setModalStatus(finding.status || 'OPEN');
+    setModalNote(finding.remediationNote || '');
+    setStatusSuccessMsg('');
+  };
+
+  const handleSaveStatus = async (e) => {
+    if (e) e.preventDefault();
+    if (!statusModalFinding) return;
+
+    try {
+      setSavingStatus(true);
+      const res = await api.patch(`/findings/${statusModalFinding._id}/status`, {
+        status: modalStatus,
+        note: modalNote,
+      });
+
+      if (res.data && res.data.success) {
+        setFindings((prev) =>
+          prev.map((f) => (f._id === statusModalFinding._id ? res.data.finding : f))
+        );
+        setStatusModalFinding(res.data.finding);
+        setStatusSuccessMsg(`Status updated to "${modalStatus}" successfully!`);
+        setTimeout(() => {
+          setStatusModalFinding(null);
+          setStatusSuccessMsg('');
+        }, 1500);
+      }
+    } catch (err) {
+      console.error('[Update Status Error]', err);
+      alert(err.response?.data?.message || 'Failed to update finding status.');
+    } finally {
+      setSavingStatus(false);
+    }
+  };
 
   // Handle PDF Export
   const handleDownloadPDF = async (reportType = 'auto') => {
@@ -664,8 +727,54 @@ export default function Findings() {
           ))}
         </div>
 
-        {/* Repository Filter Dropdown & Search Input */}
-        <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', flexWrap: 'wrap' }}>
+        {/* Status, Severity & Repository Filter Dropdowns & Search Input */}
+        <div style={{ display: 'flex', alignItems: 'center', gap: '0.65rem', flexWrap: 'wrap' }}>
+          {/* Status Filter */}
+          <select
+            value={statusFilter}
+            onChange={(e) => setStatusFilter(e.target.value)}
+            title="Filter by Vulnerability Lifecycle Status"
+            style={{
+              padding: '0.45rem 0.75rem',
+              backgroundColor: 'var(--bg-card)',
+              border: '1px solid var(--border-color)',
+              borderRadius: '6px',
+              color: 'var(--text-primary)',
+              fontSize: '0.8rem',
+              outline: 'none',
+              cursor: 'pointer',
+            }}
+          >
+            <option value="ALL">All Statuses</option>
+            <option value="OPEN">🔴 Open</option>
+            <option value="IN_PROGRESS">🔵 In Progress</option>
+            <option value="RESOLVED">🟢 Resolved</option>
+            <option value="ACCEPTED_RISK">🟣 Accepted Risk</option>
+          </select>
+
+          {/* Severity Filter */}
+          <select
+            value={severityFilter}
+            onChange={(e) => setSeverityFilter(e.target.value)}
+            title="Filter by Severity Level"
+            style={{
+              padding: '0.45rem 0.75rem',
+              backgroundColor: 'var(--bg-card)',
+              border: '1px solid var(--border-color)',
+              borderRadius: '6px',
+              color: 'var(--text-primary)',
+              fontSize: '0.8rem',
+              outline: 'none',
+              cursor: 'pointer',
+            }}
+          >
+            <option value="ALL">All Severities</option>
+            <option value="CRITICAL">Critical</option>
+            <option value="HIGH">High</option>
+            <option value="MEDIUM">Medium</option>
+            <option value="LOW">Low</option>
+          </select>
+
           {!selectedScan && repositories.length > 0 && (
             <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
               <FolderGit2 size={16} color="var(--text-muted)" />
@@ -883,7 +992,7 @@ export default function Findings() {
                 }}
               >
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', flexWrap: 'wrap', gap: '0.5rem' }}>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', flexWrap: 'wrap' }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '0.6rem', flexWrap: 'wrap' }}>
                     <span style={{
                       padding: '0.2rem 0.6rem',
                       borderRadius: '4px',
@@ -916,6 +1025,32 @@ export default function Findings() {
                       {finding.severity}
                     </span>
 
+                    {/* Status Badge */}
+                    {(() => {
+                      const st = finding.status || 'OPEN';
+                      const stColors = {
+                        OPEN: { bg: 'rgba(239, 68, 68, 0.12)', color: '#ef4444', border: 'rgba(239, 68, 68, 0.3)', label: 'OPEN' },
+                        IN_PROGRESS: { bg: 'rgba(14, 165, 233, 0.12)', color: '#0ea5e9', border: 'rgba(14, 165, 233, 0.3)', label: 'IN PROGRESS' },
+                        RESOLVED: { bg: 'rgba(16, 185, 129, 0.12)', color: '#10b981', border: 'rgba(16, 185, 129, 0.3)', label: 'RESOLVED' },
+                        ACCEPTED_RISK: { bg: 'rgba(168, 85, 247, 0.12)', color: '#c084fc', border: 'rgba(168, 85, 247, 0.3)', label: 'ACCEPTED RISK' },
+                      };
+                      const conf = stColors[st] || stColors.OPEN;
+                      return (
+                        <span style={{
+                          padding: '0.2rem 0.6rem',
+                          borderRadius: '4px',
+                          fontSize: '0.72rem',
+                          fontWeight: 700,
+                          backgroundColor: conf.bg,
+                          color: conf.color,
+                          border: `1px solid ${conf.border}`,
+                          letterSpacing: '0.02em',
+                        }}>
+                          {conf.label}
+                        </span>
+                      );
+                    })()}
+
                     <span style={{
                       padding: '0.2rem 0.5rem',
                       borderRadius: '4px',
@@ -937,9 +1072,42 @@ export default function Findings() {
                     </h3>
                   </div>
 
-                  <div style={{ display: 'flex', alignItems: 'center', gap: '0.35rem', fontSize: '0.75rem', color: 'var(--text-muted)' }}>
-                    <Calendar size={13} />
-                    <span>{formatDetectedAt(scanDate)}</span>
+                  {/* Right Header Actions */}
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
+                    <button
+                      onClick={() => handleOpenStatusModal(finding)}
+                      title="Update Vulnerability Lifecycle Status & Remediation Notes"
+                      style={{
+                        display: 'inline-flex',
+                        alignItems: 'center',
+                        gap: '0.35rem',
+                        padding: '0.35rem 0.75rem',
+                        borderRadius: '6px',
+                        backgroundColor: 'var(--bg-secondary)',
+                        border: '1px solid var(--border-color)',
+                        color: 'var(--accent-cyan)',
+                        fontSize: '0.75rem',
+                        fontWeight: 600,
+                        cursor: 'pointer',
+                        transition: 'all 0.15s ease',
+                      }}
+                      onMouseEnter={(e) => {
+                        e.currentTarget.style.backgroundColor = 'var(--accent-cyan-glow)';
+                        e.currentTarget.style.borderColor = 'var(--accent-cyan)';
+                      }}
+                      onMouseLeave={(e) => {
+                        e.currentTarget.style.backgroundColor = 'var(--bg-secondary)';
+                        e.currentTarget.style.borderColor = 'var(--border-color)';
+                      }}
+                    >
+                      <Edit3 size={13} />
+                      <span>Update Status</span>
+                    </button>
+
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '0.35rem', fontSize: '0.75rem', color: 'var(--text-muted)' }}>
+                      <Calendar size={13} />
+                      <span>{formatDetectedAt(scanDate)}</span>
+                    </div>
                   </div>
                 </div>
 
@@ -978,6 +1146,27 @@ export default function Findings() {
                   </div>
                 )}
 
+                {/* Remediation Note Banner (if user documented any) */}
+                {finding.remediationNote && (
+                  <div style={{
+                    display: 'flex',
+                    alignItems: 'flex-start',
+                    gap: '0.5rem',
+                    backgroundColor: 'rgba(16, 185, 129, 0.08)',
+                    border: '1px solid rgba(16, 185, 129, 0.3)',
+                    padding: '0.5rem 0.75rem',
+                    borderRadius: '6px',
+                    fontSize: '0.8rem',
+                    color: 'var(--text-primary)',
+                  }}>
+                    <MessageSquare size={14} color="var(--status-success)" style={{ marginTop: '0.15rem', flexShrink: 0 }} />
+                    <div>
+                      <strong style={{ color: 'var(--status-success)' }}>Remediation Note: </strong>
+                      <span>{finding.remediationNote}</span>
+                    </div>
+                  </div>
+                )}
+
                 {/* Recommended Remediation Section */}
                 {finding.remediation && (
                   <div style={{
@@ -993,7 +1182,7 @@ export default function Findings() {
                   }}>
                     <Wrench size={14} color="var(--accent-cyan)" style={{ marginTop: '0.15rem', flexShrink: 0 }} />
                     <div>
-                      <strong style={{ color: 'var(--accent-cyan)' }}>Remediation: </strong>
+                      <strong style={{ color: 'var(--accent-cyan)' }}>Scanner Remediation: </strong>
                       <span>{finding.remediation}</span>
                     </div>
                   </div>
@@ -1028,6 +1217,192 @@ export default function Findings() {
               </div>
             );
           })}
+        </div>
+      )}
+
+      {/* Vulnerability Lifecycle Status & Remediation Note Modal */}
+      {statusModalFinding && (
+        <div style={{
+          position: 'fixed',
+          top: 0,
+          left: 0,
+          right: 0,
+          bottom: 0,
+          backgroundColor: 'rgba(0, 0, 0, 0.7)',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          zIndex: 100,
+          padding: '1rem',
+        }}>
+          <div style={{
+            backgroundColor: 'var(--bg-card)',
+            border: '1px solid var(--border-color)',
+            borderRadius: '12px',
+            width: '100%',
+            maxWidth: '560px',
+            maxHeight: '90vh',
+            overflowY: 'auto',
+            padding: '1.5rem',
+            display: 'flex',
+            flexDirection: 'column',
+            gap: '1.25rem',
+            boxShadow: '0 20px 25px -5px rgba(0, 0, 0, 0.5)',
+          }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderBottom: '1px solid var(--border-color)', paddingBottom: '0.75rem' }}>
+              <div>
+                <h3 style={{ fontSize: '1.15rem', fontWeight: 700, color: 'var(--text-primary)' }}>
+                  Update Finding Status
+                </h3>
+                <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>
+                  Vulnerability Lifecycle Management
+                </div>
+              </div>
+              <button
+                onClick={() => setStatusModalFinding(null)}
+                style={{ background: 'none', border: 'none', color: 'var(--text-muted)', cursor: 'pointer' }}
+              >
+                <X size={18} />
+              </button>
+            </div>
+
+            {statusSuccessMsg && (
+              <div style={{
+                padding: '0.75rem 1rem',
+                backgroundColor: 'rgba(16, 185, 129, 0.15)',
+                border: '1px solid rgba(16, 185, 129, 0.3)',
+                borderRadius: '6px',
+                color: 'var(--status-success)',
+                fontSize: '0.85rem',
+                fontWeight: 600,
+              }}>
+                ✓ {statusSuccessMsg}
+              </div>
+            )}
+
+            <div>
+              <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)', textTransform: 'uppercase', fontWeight: 700, letterSpacing: '0.05em' }}>
+                Finding
+              </div>
+              <div style={{ fontSize: '0.95rem', fontWeight: 600, color: 'var(--text-primary)', marginTop: '0.2rem' }}>
+                {statusModalFinding.title}
+              </div>
+              <div style={{ fontSize: '0.8rem', color: 'var(--text-secondary)', fontFamily: 'monospace' }}>
+                {statusModalFinding.file || statusModalFinding.identifier}
+              </div>
+            </div>
+
+            <form onSubmit={handleSaveStatus} style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
+              <div>
+                <label style={{ display: 'block', fontSize: '0.8rem', fontWeight: 600, color: 'var(--text-primary)', marginBottom: '0.4rem' }}>
+                  Lifecycle Status
+                </label>
+                <select
+                  value={modalStatus}
+                  onChange={(e) => setModalStatus(e.target.value)}
+                  style={{
+                    width: '100%',
+                    padding: '0.65rem 0.85rem',
+                    backgroundColor: 'var(--bg-secondary)',
+                    border: '1px solid var(--border-color)',
+                    borderRadius: '8px',
+                    color: 'var(--text-primary)',
+                    fontSize: '0.875rem',
+                    outline: 'none',
+                  }}
+                >
+                  <option value="OPEN">🔴 Open (Triage Required)</option>
+                  <option value="IN_PROGRESS">🔵 In Progress (Under Remediation)</option>
+                  <option value="RESOLVED">🟢 Resolved (Patched / Fixed)</option>
+                  <option value="ACCEPTED_RISK">🟣 Accepted Risk (Mitigating Controls Active)</option>
+                </select>
+              </div>
+
+              <div>
+                <label style={{ display: 'block', fontSize: '0.8rem', fontWeight: 600, color: 'var(--text-primary)', marginBottom: '0.4rem' }}>
+                  Remediation Note & Justification
+                </label>
+                <textarea
+                  value={modalNote}
+                  onChange={(e) => setModalNote(e.target.value)}
+                  placeholder="Document PR fix link, mitigation rationale, or secret rotation details..."
+                  rows={4}
+                  style={{
+                    width: '100%',
+                    padding: '0.65rem 0.85rem',
+                    backgroundColor: 'var(--bg-secondary)',
+                    border: '1px solid var(--border-color)',
+                    borderRadius: '8px',
+                    color: 'var(--text-primary)',
+                    fontSize: '0.85rem',
+                    outline: 'none',
+                    resize: 'vertical',
+                    fontFamily: 'inherit',
+                  }}
+                />
+              </div>
+
+              {/* Status History Audit Trail */}
+              {statusModalFinding.statusHistory && statusModalFinding.statusHistory.length > 0 && (
+                <div>
+                  <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)', textTransform: 'uppercase', fontWeight: 700, letterSpacing: '0.05em', marginBottom: '0.4rem', display: 'flex', alignItems: 'center', gap: '0.3rem' }}>
+                    <History size={13} />
+                    <span>Audit Trail / History</span>
+                  </div>
+                  <div style={{ maxHeight: '140px', overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: '0.4rem' }}>
+                    {statusModalFinding.statusHistory.slice().reverse().map((h, i) => (
+                      <div key={i} style={{ padding: '0.5rem 0.75rem', backgroundColor: 'var(--bg-secondary)', borderRadius: '6px', fontSize: '0.75rem', border: '1px solid var(--border-color)' }}>
+                        <div style={{ display: 'flex', justifyContent: 'space-between', color: 'var(--text-primary)', fontWeight: 600 }}>
+                          <span>Status set to [{h.status}]</span>
+                          <span style={{ color: 'var(--text-muted)', fontWeight: 400 }}>{new Date(h.changedAt).toLocaleString()}</span>
+                        </div>
+                        {h.note && (
+                          <div style={{ color: 'var(--text-secondary)', marginTop: '0.2rem' }}>
+                            "{h.note}"
+                          </div>
+                        )}
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '0.75rem', marginTop: '0.5rem' }}>
+                <button
+                  type="button"
+                  onClick={() => setStatusModalFinding(null)}
+                  style={{
+                    padding: '0.6rem 1rem',
+                    backgroundColor: 'var(--bg-secondary)',
+                    border: '1px solid var(--border-color)',
+                    color: 'var(--text-secondary)',
+                    borderRadius: '6px',
+                    fontSize: '0.85rem',
+                    fontWeight: 600,
+                    cursor: 'pointer',
+                  }}
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  disabled={savingStatus}
+                  style={{
+                    padding: '0.6rem 1.25rem',
+                    backgroundColor: 'var(--accent-cyan)',
+                    border: 'none',
+                    color: '#ffffff',
+                    borderRadius: '6px',
+                    fontSize: '0.85rem',
+                    fontWeight: 600,
+                    cursor: savingStatus ? 'not-allowed' : 'pointer',
+                  }}
+                >
+                  {savingStatus ? 'Saving...' : 'Save Status & Note'}
+                </button>
+              </div>
+            </form>
+          </div>
         </div>
       )}
     </div>

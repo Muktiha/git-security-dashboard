@@ -8,6 +8,69 @@ import Scan from '../models/Scan.js';
 import Finding from '../models/Finding.js';
 import { runGitleaks } from '../services/gitleaks.service.js';
 import { runTrivy } from '../services/trivy.service.js';
+import { createNotificationSafely } from './notification.controller.js';
+import Notification from '../models/Notification.js';
+
+/**
+ * Calculates severity-weighted repository security health score (0-100).
+ * Heuristic formula:
+ * Baseline: 100
+ * Deductions:
+ *   - Critical: 25 pts
+ *   - High: 15 pts
+ *   - Medium: 5 pts
+ *   - Low: 2 pts
+ *   - Accepted Risk: 1 pt
+ *   - Resolved: 0 pts (no penalty)
+ * Clamped between 0 and 100.
+ */
+export const calculateSecurityScore = (findings, scanStatus = 'COMPLETED') => {
+  if (scanStatus === 'FAILED') return null;
+  if (!Array.isArray(findings)) return null;
+
+  let deduction = 0;
+  for (const f of findings) {
+    if (f.status === 'RESOLVED') continue;
+
+    if (f.status === 'ACCEPTED_RISK') {
+      deduction += 1;
+      continue;
+    }
+
+    const sev = (f.severity || '').toUpperCase();
+    if (sev === 'CRITICAL') deduction += 25;
+    else if (sev === 'HIGH') deduction += 15;
+    else if (sev === 'MEDIUM') deduction += 5;
+    else if (sev === 'LOW') deduction += 2;
+    else deduction += 1;
+  }
+
+  const score = Math.max(0, Math.min(100, 100 - deduction));
+  let grade = 'A';
+  let riskLevel = 'Low Risk (Clean Posture)';
+
+  if (score >= 90) {
+    grade = 'A';
+    riskLevel = 'Low Risk (Clean Posture)';
+  } else if (score >= 75) {
+    grade = 'B';
+    riskLevel = 'Moderate Risk';
+  } else if (score >= 50) {
+    grade = 'C';
+    riskLevel = 'Elevated Risk';
+  } else {
+    grade = 'D';
+    riskLevel = 'Critical Risk';
+  }
+
+  return {
+    score,
+    grade,
+    riskLevel,
+    formula: '100 - (Critical*25 + High*15 + Medium*5 + Low*2 + AcceptedRisk*1)',
+    disclaimer: 'Internal heuristic risk indicator based on weighted vulnerability severity. Not a formal government or ISO/NIST certification.',
+  };
+};
 
 /**
  * Clones repository into a specified target directory with timeout and prompt protection.
@@ -187,6 +250,16 @@ export const startScan = async (req, res) => {
       scan.completedAt = new Date();
       await scan.save();
 
+      await createNotificationSafely({
+        userId: req.user.id,
+        repositoryId: repository._id,
+        scanId: scan._id,
+        type: 'SCAN_FAILED',
+        title: `Security Scan Failed: ${repository.name}`,
+        message: `Unable to clone repository ${repository.owner}/${repository.name}: ${cloneErr.message}`,
+        link: '/repositories',
+      });
+
       return res.status(400).json({
         success: false,
         message: `Unable to clone repository: ${cloneErr.message}`,
@@ -213,6 +286,16 @@ export const startScan = async (req, res) => {
       scan.failureReason = combinedFailure;
       scan.completedAt = new Date();
       await scan.save();
+
+      await createNotificationSafely({
+        userId: req.user.id,
+        repositoryId: repository._id,
+        scanId: scan._id,
+        type: 'SCAN_FAILED',
+        title: `Security Scan Failed: ${repository.name}`,
+        message: combinedFailure,
+        link: '/repositories',
+      });
 
       return res.status(500).json({
         success: false,
@@ -329,6 +412,39 @@ export const startScan = async (req, res) => {
     repository.lastScannedAt = completedAt;
     await repository.save();
 
+    // Trigger in-app notification based on scan results
+    if (criticalCount > 0) {
+      await createNotificationSafely({
+        userId: req.user.id,
+        repositoryId: repository._id,
+        scanId: scan._id,
+        type: 'CRITICAL_FINDINGS',
+        title: `Critical Vulnerabilities: ${repository.name}`,
+        message: `Detected ${criticalCount} Critical and ${highCount} High vulnerabilities in ${repository.name}. Immediate triage required.`,
+        link: `/findings?scanId=${scan._id}`,
+      });
+    } else if (highCount > 0) {
+      await createNotificationSafely({
+        userId: req.user.id,
+        repositoryId: repository._id,
+        scanId: scan._id,
+        type: 'HIGH_FINDINGS',
+        title: `High Severity Findings: ${repository.name}`,
+        message: `Detected ${highCount} High severity security findings in ${repository.name}.`,
+        link: `/findings?scanId=${scan._id}`,
+      });
+    } else {
+      await createNotificationSafely({
+        userId: req.user.id,
+        repositoryId: repository._id,
+        scanId: scan._id,
+        type: 'SCAN_COMPLETED',
+        title: `Scan Completed: ${repository.name}`,
+        message: `Scan finished in ${duration}s. ${allFindings.length === 0 ? 'No security issues detected.' : `${allFindings.length} findings recorded.`}`,
+        link: `/findings?scanId=${scan._id}`,
+      });
+    }
+
     return res.status(200).json({
       success: true,
       message: 'Scan completed successfully.',
@@ -354,6 +470,16 @@ export const startScan = async (req, res) => {
       scan.failureReason = error.message || 'Scan aborted due to an internal error.';
       scan.completedAt = new Date();
       await scan.save().catch(() => {});
+
+      await createNotificationSafely({
+        userId: req.user.id,
+        repositoryId: repository._id,
+        scanId: scan._id,
+        type: 'SCAN_FAILED',
+        title: `Scan Terminated: ${repository.name}`,
+        message: error.message || 'Scan aborted due to an internal error.',
+        link: '/repositories',
+      });
     }
 
     return res.status(500).json({
@@ -571,78 +697,410 @@ export const getScanFindings = async (req, res) => {
 };
 
 /**
- * Computes dashboard statistics from real scan results and repository states.
+ * Computes comprehensive DevSecOps security command center statistics from real database records.
  */
 export const getDashboardStats = async (req, res) => {
   try {
-    const repositories = await Repository.find({ userId: req.user.id }).sort({ createdAt: -1 });
-    const repoIds = repositories.map((r) => r._id);
+    const { repositoryId, timeRange, severity, scanner, status } = req.query;
 
-    const findings = await Finding.find({ repositoryId: { $in: repoIds } });
+    const userRepos = await Repository.find({ userId: req.user.id }).sort({ createdAt: -1 });
+    const repoIds = userRepos.map((r) => r._id);
 
-    const recentScans = await Scan.find({ repositoryId: { $in: repoIds } })
+    // Apply repository filter if passed
+    const targetRepoIds = (repositoryId && mongoose.Types.ObjectId.isValid(repositoryId))
+      ? repoIds.filter((id) => id.toString() === repositoryId)
+      : repoIds;
+
+    // Time filter for findings/scans (7d, 30d, all)
+    let dateFilter = null;
+    const now = new Date();
+    if (timeRange === '7d') {
+      dateFilter = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
+    } else if (timeRange === '30d') {
+      dateFilter = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000);
+    }
+
+    // Build finding query
+    const findingQuery = { repositoryId: { $in: targetRepoIds } };
+    if (dateFilter) {
+      findingQuery.createdAt = { $gte: dateFilter };
+    }
+    if (severity && severity !== 'ALL') {
+      findingQuery.severity = severity.toUpperCase();
+    }
+    if (scanner && scanner !== 'ALL') {
+      findingQuery.scanner = scanner.toUpperCase();
+    }
+    if (status && status !== 'ALL') {
+      findingQuery.status = status.toUpperCase();
+    }
+
+    // Fetch findings
+    const findings = await Finding.find(findingQuery)
+      .populate('repositoryId', 'name owner branch url')
+      .lean();
+
+    // Fetch all user scans
+    const scanQuery = { repositoryId: { $in: targetRepoIds } };
+    if (dateFilter) {
+      scanQuery.createdAt = { $gte: dateFilter };
+    }
+    const scans = await Scan.find(scanQuery)
       .populate('repositoryId', 'name owner branch url')
       .sort({ createdAt: -1 })
-      .limit(6);
+      .lean();
 
-    const trackedCount = repositories.length;
-    const scannedCount = repositories.filter((r) => r.lastScannedAt !== null).length;
-    const exposedSecrets = findings.filter((f) => f.scanner === 'GITLEAKS').length;
-    const criticalCVEs = findings.filter((f) => f.scanner === 'TRIVY' && f.severity === 'CRITICAL').length;
+    // Fetch user notifications for recent activity feed
+    const notifications = await Notification.find({ userId: req.user.id })
+      .populate('repositoryId', 'name owner')
+      .sort({ createdAt: -1 })
+      .limit(10)
+      .lean();
 
-    const criticalTotal = findings.filter((f) => f.severity === 'CRITICAL').length;
-    const highTotal = findings.filter((f) => f.severity === 'HIGH').length;
-    const mediumTotal = findings.filter((f) => f.severity === 'MEDIUM').length;
-    const lowTotal = findings.filter((f) => f.severity === 'LOW').length;
+    // 1. Compute Summary Metrics
+    const totalRepos = userRepos.length;
+    const scannedReposCount = userRepos.filter((r) => r.lastScannedAt !== null).length;
 
+    // Unresolved findings (OPEN, IN_PROGRESS, or undefined)
+    const openFindings = findings.filter((f) => (f.status || 'OPEN') === 'OPEN' || f.status === 'IN_PROGRESS');
+    const resolvedFindings = findings.filter((f) => f.status === 'RESOLVED');
+    const openCritical = openFindings.filter((f) => f.severity === 'CRITICAL');
+    const openHigh = openFindings.filter((f) => f.severity === 'HIGH');
+    const exposedSecrets = openFindings.filter((f) => f.scanner === 'GITLEAKS');
+    const criticalCVEs = openFindings.filter((f) => f.scanner === 'TRIVY' && f.severity === 'CRITICAL');
+
+    // Global security health score
     let healthScore = 100;
-    if (scannedCount > 0) {
-      healthScore = Math.max(0, 100 - (criticalTotal * 25 + highTotal * 15 + mediumTotal * 5 + lowTotal * 2));
+    let healthGrade = 'A';
+    let healthLabel = 'Pending initial scan';
+    if (scannedReposCount > 0) {
+      const scoreObj = calculateSecurityScore(findings);
+      healthScore = scoreObj ? scoreObj.score : 100;
+      healthGrade = scoreObj ? scoreObj.grade : 'A';
+      healthLabel = scoreObj ? scoreObj.riskLevel : 'Clean posture';
     }
 
-    let healthLabel = 'Clean posture';
-    if (scannedCount === 0) {
-      healthLabel = 'Pending initial scan';
-    } else if (healthScore >= 90) {
-      healthLabel = 'Clean posture';
-    } else if (healthScore >= 70) {
-      healthLabel = 'Moderate posture';
-    } else {
-      healthLabel = 'Immediate fix needed';
+    // 2. Scan Freshness & Hygiene Evaluation
+    const STALE_THRESHOLD_DAYS = 7;
+    const staleThresholdMs = STALE_THRESHOLD_DAYS * 24 * 60 * 60 * 1000;
+    let freshCount = 0;
+    let staleCount = 0;
+    let neverScannedCount = 0;
+
+    // Latest scan per repository map
+    const latestScanMap = {};
+    for (const s of scans) {
+      const rId = s.repositoryId?._id?.toString() || s.repositoryId?.toString();
+      if (!latestScanMap[rId]) {
+        latestScanMap[rId] = s;
+      }
     }
 
-    const formattedRecentActivity = recentScans.map((s) => ({
-      id: s._id,
-      scanId: s._id,
-      repositoryId: s.repositoryId?._id || s.repositoryId,
-      repo: s.repositoryId ? `${s.repositoryId.owner}/${s.repositoryId.name}` : 'Unknown Repository',
-      repoName: s.repositoryId?.name || '',
-      repoOwner: s.repositoryId?.owner || '',
-      repoUrl: s.repositoryId?.url || '',
-      branch: s.repositoryId?.branch || 'main',
-      status: s.status,
-      failureReason: s.failureReason || '',
-      completedAt: s.completedAt || s.createdAt,
-      duration: s.duration,
-      totalFindings: s.totalFindings || 0,
-      criticalCount: s.criticalCount || 0,
-      highCount: s.highCount || 0,
-      mediumCount: s.mediumCount || 0,
-      lowCount: s.lowCount || 0,
-    }));
+    // Findings grouped by repo
+    const findingsByRepoMap = {};
+    for (const f of findings) {
+      const rId = f.repositoryId?._id?.toString() || f.repositoryId?.toString();
+      if (!findingsByRepoMap[rId]) findingsByRepoMap[rId] = [];
+      findingsByRepoMap[rId].push(f);
+    }
+
+    // 3. Repository Risk Table Data
+    const repositoryRiskTable = userRepos.map((repo) => {
+      const rId = repo._id.toString();
+      const rFindings = findingsByRepoMap[rId] || [];
+      const latestScan = latestScanMap[rId] || null;
+
+      let freshness = 'NEVER_SCANNED';
+      if (repo.lastScannedAt) {
+        const timeSinceScan = now.getTime() - new Date(repo.lastScannedAt).getTime();
+        if (timeSinceScan > staleThresholdMs) {
+          freshness = 'STALE';
+          staleCount++;
+        } else {
+          freshness = 'FRESH';
+          freshCount++;
+        }
+      } else {
+        neverScannedCount++;
+      }
+
+      const rOpenCritical = rFindings.filter((f) => f.severity === 'CRITICAL' && f.status !== 'RESOLVED').length;
+      const rOpenHigh = rFindings.filter((f) => f.severity === 'HIGH' && f.status !== 'RESOLVED').length;
+      const rOpenTotal = rFindings.filter((f) => f.status !== 'RESOLVED').length;
+
+      let repoScore = null;
+      let repoGrade = 'N/A';
+      if (latestScan && latestScan.status === 'COMPLETED') {
+        const scoreObj = calculateSecurityScore(rFindings, 'COMPLETED');
+        repoScore = scoreObj ? scoreObj.score : 100;
+        repoGrade = scoreObj ? scoreObj.grade : 'A';
+      }
+
+      return {
+        _id: repo._id,
+        name: repo.name,
+        owner: repo.owner,
+        fullName: `${repo.owner}/${repo.name}`,
+        url: repo.url,
+        branch: repo.branch || 'main',
+        lastScannedAt: repo.lastScannedAt,
+        freshness,
+        scanStatus: latestScan ? latestScan.status : 'PENDING',
+        latestScanId: latestScan ? latestScan._id : null,
+        latestScanDuration: latestScan ? latestScan.duration : null,
+        failureReason: latestScan?.failureReason || '',
+        openCriticalCount: rOpenCritical,
+        openHighCount: rOpenHigh,
+        openTotal: rOpenTotal,
+        totalFindings: rFindings.length,
+        score: repoScore,
+        grade: repoGrade,
+      };
+    });
+
+    // 4. Recommended Actions / Security Advisories Generator
+    const recommendedActions = [];
+
+    // Check failed scans first
+    for (const repo of repositoryRiskTable) {
+      if (repo.scanStatus === 'FAILED') {
+        recommendedActions.push({
+          id: `failed-${repo._id}`,
+          priority: 'CRITICAL',
+          category: 'SCAN_FAILURE',
+          title: `Retry failed security scan for ${repo.name}`,
+          description: `Latest scan failed: ${repo.failureReason || 'Tool error or clone timeout'}. Run a new scan to establish security baseline.`,
+          actionType: 'RETRY_SCAN',
+          repoId: repo._id,
+          repoName: repo.name,
+          link: `/repositories`,
+        });
+      }
+    }
+
+    // Check open critical vulnerabilities
+    for (const repo of repositoryRiskTable) {
+      if (repo.openCriticalCount > 0) {
+        recommendedActions.push({
+          id: `crit-${repo._id}`,
+          priority: 'CRITICAL',
+          category: 'CRITICAL_VULN',
+          title: `Remediate ${repo.openCriticalCount} critical issues in ${repo.name}`,
+          description: `Unresolved critical secrets or CVEs detected. Immediate remediation advised before merging pull requests.`,
+          actionType: 'VIEW_FINDINGS',
+          repoId: repo._id,
+          repoName: repo.name,
+          link: `/findings?repoId=${repo._id}&severity=CRITICAL`,
+        });
+      } else if (repo.openHighCount > 0) {
+        recommendedActions.push({
+          id: `high-${repo._id}`,
+          priority: 'HIGH',
+          category: 'HIGH_VULN',
+          title: `Triage ${repo.openHighCount} high severity findings in ${repo.name}`,
+          description: `High severity vulnerabilities present. Review dependencies or patch packages.`,
+          actionType: 'VIEW_FINDINGS',
+          repoId: repo._id,
+          repoName: repo.name,
+          link: `/findings?repoId=${repo._id}&severity=HIGH`,
+        });
+      }
+    }
+
+    // Check never scanned repos
+    for (const repo of repositoryRiskTable) {
+      if (repo.freshness === 'NEVER_SCANNED') {
+        recommendedActions.push({
+          id: `never-${repo._id}`,
+          priority: 'MEDIUM',
+          category: 'NEVER_SCANNED',
+          title: `Initialize security scan for ${repo.name}`,
+          description: `Repository has never been scanned. Run automated Gitleaks & Trivy inspection to assess posture.`,
+          actionType: 'SCAN',
+          repoId: repo._id,
+          repoName: repo.name,
+          link: `/repositories`,
+        });
+      }
+    }
+
+    // Check stale scans
+    for (const repo of repositoryRiskTable) {
+      if (repo.freshness === 'STALE') {
+        const days = Math.max(1, Math.round((now.getTime() - new Date(repo.lastScannedAt).getTime()) / (1000 * 60 * 60 * 24)));
+        recommendedActions.push({
+          id: `stale-${repo._id}`,
+          priority: 'LOW',
+          category: 'STALE_SCAN',
+          title: `Refresh stale security scan for ${repo.name}`,
+          description: `Last successful scan was ${days} days ago. Scheduled refresh recommended to detect new upstream CVE disclosures.`,
+          actionType: 'SCAN',
+          repoId: repo._id,
+          repoName: repo.name,
+          link: `/repositories`,
+        });
+      }
+    }
+
+    // 5. Automated Latest Scan Comparison (Latest Completed Scan vs Previous Completed Scan for same repo)
+    let latestScanComparison = null;
+    const completedScans = scans.filter((s) => s.status === 'COMPLETED');
+    if (completedScans.length >= 2) {
+      const targetScan = completedScans[0];
+      const targetRepoIdStr = targetScan.repositoryId?._id?.toString() || targetScan.repositoryId?.toString();
+      // Find previous scan for same repo
+      const baseScan = completedScans.slice(1).find((s) => {
+        const rIdStr = s.repositoryId?._id?.toString() || s.repositoryId?.toString();
+        return rIdStr === targetRepoIdStr;
+      });
+
+      if (baseScan) {
+        const [targetF, baseF] = await Promise.all([
+          Finding.find({ scanId: targetScan._id }).lean(),
+          Finding.find({ scanId: baseScan._id }).lean(),
+        ]);
+
+        const getFingerprint = (f) => f.fingerprint || `${f.scanner}:${f.identifier || f.title}:${f.file || ''}:${f.line || ''}`;
+        const baseSet = new Set(baseF.map(getFingerprint));
+        const targetSet = new Set(targetF.map(getFingerprint));
+
+        let newCount = 0;
+        let persistentCount = 0;
+        let fixedCount = 0;
+
+        for (const t of targetF) {
+          if (baseSet.has(getFingerprint(t))) persistentCount++;
+          else newCount++;
+        }
+        for (const b of baseF) {
+          if (!targetSet.has(getFingerprint(b))) fixedCount++;
+        }
+
+        const baseScoreObj = calculateSecurityScore(baseF, 'COMPLETED');
+        const targetScoreObj = calculateSecurityScore(targetF, 'COMPLETED');
+        const baseScore = baseScoreObj ? baseScoreObj.score : 100;
+        const targetScore = targetScoreObj ? targetScoreObj.score : 100;
+
+        latestScanComparison = {
+          repoName: targetScan.repositoryId?.name || 'Repository',
+          repoOwner: targetScan.repositoryId?.owner || '',
+          baseScanId: baseScan._id,
+          targetScanId: targetScan._id,
+          baseDate: baseScan.completedAt || baseScan.createdAt,
+          targetDate: targetScan.completedAt || targetScan.createdAt,
+          baseScore,
+          targetScore,
+          scoreDelta: targetScore - baseScore,
+          newCount,
+          fixedCount,
+          persistentCount,
+          totalBaseFindings: baseF.length,
+          totalTargetFindings: targetF.length,
+        };
+      }
+    }
+
+    // 6. Security Trends Data (Chronological for Charting)
+    const scanTrends = completedScans
+      .slice(0, 10)
+      .reverse()
+      .map((s, idx) => ({
+        index: idx + 1,
+        date: s.completedAt ? new Date(s.completedAt).toLocaleDateString([], { month: 'short', day: 'numeric' }) : 'Recent',
+        repo: s.repositoryId?.name || 'Repo',
+        totalFindings: s.totalFindings || 0,
+        critical: s.criticalCount || 0,
+        high: s.highCount || 0,
+        medium: s.mediumCount || 0,
+        low: s.lowCount || 0,
+      }));
+
+    // Newly detected vs resolved findings breakdown
+    const newVsResolvedTrends = [
+      { name: 'Active Open', count: openFindings.length, fill: '#ef4444' },
+      { name: 'In Progress', count: findings.filter((f) => f.status === 'IN_PROGRESS').length, fill: '#0ea5e9' },
+      { name: 'Resolved', count: resolvedFindings.length, fill: '#10b981' },
+      { name: 'Accepted Risk', count: findings.filter((f) => f.status === 'ACCEPTED_RISK').length, fill: '#a855f7' },
+    ];
+
+    // Severity distribution
+    const sevMap = { CRITICAL: 0, HIGH: 0, MEDIUM: 0, LOW: 0, UNKNOWN: 0 };
+    for (const f of openFindings) {
+      const s = (f.severity || 'UNKNOWN').toUpperCase();
+      sevMap[s] = (sevMap[s] || 0) + 1;
+    }
+    const severityDistribution = [
+      { name: 'Critical', count: sevMap.CRITICAL, fill: '#ef4444' },
+      { name: 'High', count: sevMap.HIGH, fill: '#f97316' },
+      { name: 'Medium', count: sevMap.MEDIUM, fill: '#eab308' },
+      { name: 'Low', count: sevMap.LOW, fill: '#3b82f6' },
+    ];
+
+    // 7. Recent Security Activity Stream
+    const recentActivity = [];
+
+    // Add recent scans
+    for (const s of scans.slice(0, 6)) {
+      const rName = s.repositoryId?.name || 'Repository';
+      recentActivity.push({
+        id: `scan-${s._id}`,
+        type: s.status === 'FAILED' ? 'SCAN_FAILED' : 'SCAN_COMPLETED',
+        title: s.status === 'FAILED' ? `Scan failed on ${rName}` : `Scan completed for ${rName}`,
+        message: s.status === 'FAILED' ? (s.failureReason || 'Encountered error') : `Detected ${s.totalFindings} findings (${s.criticalCount} Critical, ${s.highCount} High) in ${s.duration || 1}s.`,
+        timestamp: s.completedAt || s.createdAt,
+        link: s.status === 'FAILED' ? '/repositories' : `/findings?scanId=${s._id}`,
+        status: s.status,
+      });
+    }
+
+    // Add recent notifications/status changes
+    for (const n of notifications.slice(0, 4)) {
+      recentActivity.push({
+        id: `notif-${n._id}`,
+        type: n.type,
+        title: n.title,
+        message: n.message,
+        timestamp: n.createdAt,
+        link: n.link || '/notifications',
+        status: n.isRead ? 'READ' : 'UNREAD',
+      });
+    }
+
+    // Sort combined activity by timestamp descending
+    recentActivity.sort((a, b) => new Date(b.timestamp) - new Date(a.timestamp));
 
     return res.status(200).json({
       success: true,
       stats: {
-        trackedRepositories: trackedCount,
-        scannedRepositories: scannedCount,
-        exposedSecrets,
-        criticalCVEs,
+        trackedRepositories: totalRepos,
+        scannedRepositories: scannedReposCount,
+        openCriticalFindings: openCritical.length,
+        unresolvedFindings: openFindings.length,
+        resolvedFindings: resolvedFindings.length,
         totalFindings: findings.length,
+        exposedSecrets: exposedSecrets.length,
+        criticalCVEs: criticalCVEs.length,
         healthScore: `${healthScore}%`,
+        healthScoreNumber: healthScore,
+        healthGrade,
         healthLabel,
+        freshness: {
+          fresh: freshCount,
+          stale: staleCount,
+          neverScanned: neverScannedCount,
+          thresholdDays: STALE_THRESHOLD_DAYS,
+        },
       },
-      recentScans: formattedRecentActivity,
+      repositoryRiskTable,
+      recommendedActions: recommendedActions.slice(0, 6),
+      latestScanComparison,
+      trends: {
+        scanTrends,
+        newVsResolvedTrends,
+        severityDistribution,
+      },
+      recentActivity: recentActivity.slice(0, 8),
+      availableRepositories: userRepos.map((r) => ({ _id: r._id, name: r.name, owner: r.owner })),
     });
   } catch (error) {
     console.error('[Dashboard Stats Error]', error);
@@ -650,6 +1108,485 @@ export const getDashboardStats = async (req, res) => {
     return res.status(500).json({
       success: false,
       message: 'Failed to retrieve dashboard statistics.',
+    });
+  }
+};
+
+/**
+ * Updates a finding's vulnerability lifecycle status and remediation notes.
+ */
+export const updateFindingStatus = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { status, note } = req.body;
+
+    const validStatuses = ['OPEN', 'IN_PROGRESS', 'RESOLVED', 'ACCEPTED_RISK'];
+    if (!validStatuses.includes(status)) {
+      return res.status(400).json({
+        success: false,
+        message: `Invalid status. Must be one of: ${validStatuses.join(', ')}`,
+      });
+    }
+
+    if (!mongoose.Types.ObjectId.isValid(id)) {
+      return res.status(400).json({
+        success: false,
+        message: 'Invalid finding ID format.',
+      });
+    }
+
+    const userRepos = await Repository.find({ userId: req.user.id }).select('_id');
+    const repoIds = userRepos.map((r) => r._id);
+
+    const finding = await Finding.findOne({
+      _id: id,
+      repositoryId: { $in: repoIds },
+    }).populate('repositoryId', 'name owner url');
+
+    if (!finding) {
+      return res.status(404).json({
+        success: false,
+        message: 'Finding record not found or access denied.',
+      });
+    }
+
+    const previousStatus = finding.status || 'OPEN';
+    finding.status = status;
+    if (typeof note === 'string') {
+      finding.remediationNote = note.trim();
+    }
+
+    if (!Array.isArray(finding.statusHistory)) {
+      finding.statusHistory = [];
+    }
+
+    finding.statusHistory.push({
+      status,
+      note: typeof note === 'string' ? note.trim() : '',
+      changedBy: req.user.id,
+      changedAt: new Date(),
+    });
+
+    await finding.save();
+
+    // Trigger in-app notification for status modification
+    await createNotificationSafely({
+      userId: req.user.id,
+      repositoryId: finding.repositoryId?._id,
+      findingId: finding._id,
+      type: 'STATUS_CHANGED',
+      title: `Finding Status Changed: ${status}`,
+      message: `Finding "${finding.title}" in ${finding.repositoryId?.name || 'repository'} changed from ${previousStatus} to ${status}${note ? ` (Note: ${note.trim()})` : ''}.`,
+      link: `/findings?repoId=${finding.repositoryId?._id}`,
+    });
+
+    return res.status(200).json({
+      success: true,
+      message: 'Finding status updated successfully.',
+      finding,
+    });
+  } catch (error) {
+    console.error('[Update Finding Status Error]', error);
+    return res.status(500).json({
+      success: false,
+      message: 'Failed to update finding status.',
+    });
+  }
+};
+
+/**
+ * Aggregates real security analytics across repositories and scan history.
+ */
+export const getSecurityAnalytics = async (req, res) => {
+  try {
+    const userRepos = await Repository.find({ userId: req.user.id }).sort({ createdAt: -1 });
+    const repoIds = userRepos.map((r) => r._id);
+
+    // Fetch findings populated with repo details
+    const findings = await Finding.find({ repositoryId: { $in: repoIds } })
+      .populate('repositoryId', 'name owner')
+      .lean();
+
+    // Fetch completed and failed scans
+    const recentScans = await Scan.find({ repositoryId: { $in: repoIds } })
+      .populate('repositoryId', 'name owner')
+      .sort({ createdAt: -1 })
+      .limit(30)
+      .lean();
+
+    // 1. Severity Distribution
+    const severityMap = { CRITICAL: 0, HIGH: 0, MEDIUM: 0, LOW: 0, UNKNOWN: 0 };
+    for (const f of findings) {
+      const sev = (f.severity || 'UNKNOWN').toUpperCase();
+      severityMap[sev] = (severityMap[sev] || 0) + 1;
+    }
+
+    const severityDistribution = [
+      { name: 'Critical', count: severityMap.CRITICAL, color: '#ef4444' },
+      { name: 'High', count: severityMap.HIGH, color: '#f97316' },
+      { name: 'Medium', count: severityMap.MEDIUM, color: '#eab308' },
+      { name: 'Low', count: severityMap.LOW, color: '#3b82f6' },
+      { name: 'Unknown', count: severityMap.UNKNOWN, color: '#94a3b8' },
+    ];
+
+    // 2. Lifecycle Status Distribution
+    const statusMap = { OPEN: 0, IN_PROGRESS: 0, RESOLVED: 0, ACCEPTED_RISK: 0 };
+    for (const f of findings) {
+      const st = f.status || 'OPEN';
+      statusMap[st] = (statusMap[st] || 0) + 1;
+    }
+
+    const lifecycleBreakdown = [
+      { status: 'OPEN', label: 'Open', count: statusMap.OPEN, color: '#ef4444' },
+      { status: 'IN_PROGRESS', label: 'In Progress', count: statusMap.IN_PROGRESS, color: '#0ea5e9' },
+      { status: 'RESOLVED', label: 'Resolved', count: statusMap.RESOLVED, color: '#10b981' },
+      { status: 'ACCEPTED_RISK', label: 'Accepted Risk', count: statusMap.ACCEPTED_RISK, color: '#a855f7' },
+    ];
+
+    // 3. Findings by Repository
+    const repoFindingsMap = {};
+    for (const r of userRepos) {
+      repoFindingsMap[r._id.toString()] = {
+        repoId: r._id,
+        name: r.name,
+        fullName: `${r.owner}/${r.name}`,
+        secrets: 0,
+        vulnerabilities: 0,
+        critical: 0,
+        high: 0,
+        total: 0,
+        repoFindings: [],
+      };
+    }
+
+    for (const f of findings) {
+      const rId = f.repositoryId?._id?.toString() || f.repositoryId?.toString();
+      if (repoFindingsMap[rId]) {
+        repoFindingsMap[rId].total++;
+        repoFindingsMap[rId].repoFindings.push(f);
+        if (f.scanner === 'GITLEAKS') repoFindingsMap[rId].secrets++;
+        if (f.scanner === 'TRIVY') repoFindingsMap[rId].vulnerabilities++;
+        if (f.severity === 'CRITICAL') repoFindingsMap[rId].critical++;
+        if (f.severity === 'HIGH') repoFindingsMap[rId].high++;
+      }
+    }
+
+    const findingsByRepository = Object.values(repoFindingsMap).map((repoData) => {
+      const scoreObj = calculateSecurityScore(repoData.repoFindings);
+      return {
+        repoId: repoData.repoId,
+        name: repoData.name,
+        fullName: repoData.fullName,
+        secrets: repoData.secrets,
+        vulnerabilities: repoData.vulnerabilities,
+        critical: repoData.critical,
+        high: repoData.high,
+        total: repoData.total,
+        score: scoreObj ? scoreObj.score : 100,
+        grade: scoreObj ? scoreObj.grade : 'A',
+      };
+    });
+
+    // 4. Scan History Trends (chronological for charting)
+    const scanTrends = recentScans
+      .filter((s) => s.status === 'COMPLETED')
+      .slice(0, 15)
+      .reverse()
+      .map((s, idx) => ({
+        scanIndex: idx + 1,
+        scanId: s._id,
+        date: s.completedAt
+          ? new Date(s.completedAt).toLocaleDateString([], {
+              month: 'short',
+              day: 'numeric',
+              hour: '2-digit',
+              minute: '2-digit',
+            })
+          : 'Unknown',
+        repo: s.repositoryId?.name || 'Repo',
+        totalFindings: s.totalFindings || 0,
+        critical: s.criticalCount || 0,
+        high: s.highCount || 0,
+        medium: s.mediumCount || 0,
+        low: s.lowCount || 0,
+        duration: s.duration || 0,
+      }));
+
+    // 5. Scanner Engine Breakdown
+    const gitleaksCount = findings.filter((f) => f.scanner === 'GITLEAKS').length;
+    const trivyCount = findings.filter((f) => f.scanner === 'TRIVY').length;
+
+    const scannerBreakdown = [
+      { name: 'Gitleaks (Secrets)', count: gitleaksCount, color: '#f59e0b' },
+      { name: 'Trivy (Vulnerabilities)', count: trivyCount, color: '#0ea5e9' },
+    ];
+
+    // 6. Overall Metrics
+    const totalFindingsCount = findings.length;
+    const resolvedCount = statusMap.RESOLVED;
+    const resolutionRate = totalFindingsCount > 0
+      ? Math.round((resolvedCount / totalFindingsCount) * 100)
+      : 100;
+
+    const globalScoreObj = calculateSecurityScore(findings);
+
+    return res.status(200).json({
+      success: true,
+      analytics: {
+        totalRepositories: userRepos.length,
+        scannedRepositories: userRepos.filter((r) => r.lastScannedAt !== null).length,
+        totalScans: recentScans.length,
+        totalFindings: totalFindingsCount,
+        resolvedFindings: resolvedCount,
+        resolutionRate: `${resolutionRate}%`,
+        globalScore: globalScoreObj ? globalScoreObj.score : 100,
+        globalGrade: globalScoreObj ? globalScoreObj.grade : 'A',
+        globalRiskLevel: globalScoreObj ? globalScoreObj.riskLevel : 'Low Risk (Clean Posture)',
+        severityDistribution,
+        lifecycleBreakdown,
+        findingsByRepository,
+        scanTrends,
+        scannerBreakdown,
+      },
+    });
+  } catch (error) {
+    console.error('[Analytics Error]', error);
+    return res.status(500).json({
+      success: false,
+      message: 'Failed to generate security analytics.',
+    });
+  }
+};
+
+/**
+ * Retrieves full scan history for the user's repositories with computed security scores.
+ */
+export const getScanHistory = async (req, res) => {
+  try {
+    const { repositoryId } = req.query;
+    const userRepos = await Repository.find({ userId: req.user.id }).select('_id');
+    const repoIds = userRepos.map((r) => r._id);
+
+    const matchQuery = { repositoryId: { $in: repoIds } };
+    if (repositoryId && mongoose.Types.ObjectId.isValid(repositoryId)) {
+      matchQuery.repositoryId = repositoryId;
+    }
+
+    const scans = await Scan.find(matchQuery)
+      .populate('repositoryId', 'name owner url branch')
+      .sort({ createdAt: -1 })
+      .limit(100)
+      .lean();
+
+    // Fetch findings to compute scores per scan
+    const scanIds = scans.map((s) => s._id);
+    const findings = await Finding.find({ scanId: { $in: scanIds } }).lean();
+
+    const findingsByScan = {};
+    for (const f of findings) {
+      const sId = f.scanId.toString();
+      if (!findingsByScan[sId]) findingsByScan[sId] = [];
+      findingsByScan[sId].push(f);
+    }
+
+    const formattedScans = scans.map((s) => {
+      const sFindings = findingsByScan[s._id.toString()] || [];
+      const scoreObj = calculateSecurityScore(sFindings, s.status);
+
+      return {
+        _id: s._id,
+        repository: s.repositoryId,
+        status: s.status,
+        failureReason: s.failureReason,
+        duration: s.duration,
+        startedAt: s.startedAt || s.createdAt,
+        completedAt: s.completedAt,
+        totalFindings: s.totalFindings || 0,
+        criticalCount: s.criticalCount || 0,
+        highCount: s.highCount || 0,
+        mediumCount: s.mediumCount || 0,
+        lowCount: s.lowCount || 0,
+        securityScore: scoreObj ? scoreObj.score : null,
+        grade: scoreObj ? scoreObj.grade : null,
+        riskLevel: scoreObj ? scoreObj.riskLevel : (s.status === 'FAILED' ? 'Scan Failed' : 'Pending'),
+      };
+    });
+
+    return res.status(200).json({
+      success: true,
+      count: formattedScans.length,
+      scans: formattedScans,
+    });
+  } catch (error) {
+    console.error('[Scan History Error]', error);
+    return res.status(500).json({
+      success: false,
+      message: 'Failed to retrieve scan history.',
+    });
+  }
+};
+
+/**
+ * Compares two scans from the same repository to identify new, fixed, and persistent findings.
+ * Adheres to rule: "Do not claim a finding is fixed merely because it is absent from a failed or incomplete scan."
+ */
+export const compareScans = async (req, res) => {
+  try {
+    const { baseScanId, targetScanId } = req.body;
+
+    if (!baseScanId || !targetScanId) {
+      return res.status(400).json({
+        success: false,
+        message: 'Both baseScanId and targetScanId are required for comparison.',
+      });
+    }
+
+    if (!mongoose.Types.ObjectId.isValid(baseScanId) || !mongoose.Types.ObjectId.isValid(targetScanId)) {
+      return res.status(400).json({
+        success: false,
+        message: 'Invalid scan ID format provided.',
+      });
+    }
+
+    if (baseScanId === targetScanId) {
+      return res.status(400).json({
+        success: false,
+        message: 'Cannot compare a scan against itself. Please select two different scans.',
+      });
+    }
+
+    const userRepos = await Repository.find({ userId: req.user.id }).select('_id');
+    const repoIds = userRepos.map((r) => r._id);
+
+    const [baseScan, targetScan] = await Promise.all([
+      Scan.findOne({ _id: baseScanId, repositoryId: { $in: repoIds } }).populate('repositoryId', 'name owner url branch'),
+      Scan.findOne({ _id: targetScanId, repositoryId: { $in: repoIds } }).populate('repositoryId', 'name owner url branch'),
+    ]);
+
+    if (!baseScan || !targetScan) {
+      return res.status(404).json({
+        success: false,
+        message: 'One or both scan records were not found or access was denied.',
+      });
+    }
+
+    if (baseScan.repositoryId._id.toString() !== targetScan.repositoryId._id.toString()) {
+      return res.status(400).json({
+        success: false,
+        message: 'Scans must belong to the same repository to be compared.',
+      });
+    }
+
+    const [baseFindings, targetFindings] = await Promise.all([
+      Finding.find({ scanId: baseScan._id }).lean(),
+      Finding.find({ scanId: targetScan._id }).lean(),
+    ]);
+
+    const targetFailed = targetScan.status === 'FAILED';
+    const baseFailed = baseScan.status === 'FAILED';
+    const reliable = !targetFailed && !baseFailed;
+
+    let warning = '';
+    if (targetFailed && baseFailed) {
+      warning = 'Both selected scans failed. Finding delta cannot be determined.';
+    } else if (targetFailed) {
+      warning = 'Target scan failed during execution. Findings absent from the target scan CANNOT be considered fixed.';
+    } else if (baseFailed) {
+      warning = 'Base scan failed during execution. Fixed status cannot be reliably determined.';
+    }
+
+    const getFingerprint = (f) => {
+      if (f.fingerprint && f.fingerprint.trim().length > 0) return f.fingerprint.trim();
+      return `${f.scanner}:${f.identifier || f.title}:${f.file || ''}:${f.line || ''}`;
+    };
+
+    const baseMap = new Map();
+    baseFindings.forEach((f) => {
+      baseMap.set(getFingerprint(f), f);
+    });
+
+    const targetMap = new Map();
+    targetFindings.forEach((f) => {
+      targetMap.set(getFingerprint(f), f);
+    });
+
+    const newlyDetected = [];
+    const persistent = [];
+    const fixed = [];
+
+    // Evaluate target findings
+    for (const [key, tFinding] of targetMap.entries()) {
+      if (baseMap.has(key)) {
+        persistent.push({
+          ...tFinding,
+          baseMatch: baseMap.get(key),
+        });
+      } else {
+        newlyDetected.push(tFinding);
+      }
+    }
+
+    // Evaluate base findings for fixed status (ONLY if targetScan completed successfully!)
+    if (targetScan.status === 'COMPLETED') {
+      for (const [key, bFinding] of baseMap.entries()) {
+        if (!targetMap.has(key)) {
+          fixed.push(bFinding);
+        }
+      }
+    }
+
+    const baseScoreObj = calculateSecurityScore(baseFindings, baseScan.status);
+    const targetScoreObj = calculateSecurityScore(targetFindings, targetScan.status);
+
+    const baseScore = baseScoreObj ? baseScoreObj.score : null;
+    const targetScore = targetScoreObj ? targetScoreObj.score : null;
+    const scoreDelta = (baseScore !== null && targetScore !== null) ? (targetScore - baseScore) : null;
+
+    return res.status(200).json({
+      success: true,
+      comparison: {
+        repository: {
+          id: baseScan.repositoryId._id,
+          name: baseScan.repositoryId.name,
+          owner: baseScan.repositoryId.owner,
+          url: baseScan.repositoryId.url,
+          branch: baseScan.repositoryId.branch,
+        },
+        baseScan: {
+          id: baseScan._id,
+          status: baseScan.status,
+          completedAt: baseScan.completedAt || baseScan.createdAt,
+          totalFindings: baseFindings.length,
+          score: baseScore,
+          grade: baseScoreObj?.grade || 'N/A',
+        },
+        targetScan: {
+          id: targetScan._id,
+          status: targetScan.status,
+          completedAt: targetScan.completedAt || targetScan.createdAt,
+          totalFindings: targetFindings.length,
+          score: targetScore,
+          grade: targetScoreObj?.grade || 'N/A',
+        },
+        reliable,
+        warning,
+        scoreDelta,
+        findingsDelta: targetFindings.length - baseFindings.length,
+        summary: {
+          newCount: newlyDetected.length,
+          fixedCount: fixed.length,
+          persistentCount: persistent.length,
+        },
+        newlyDetected,
+        fixed,
+        persistent,
+      },
+    });
+  } catch (error) {
+    console.error('[Compare Scans Error]', error);
+    return res.status(500).json({
+      success: false,
+      message: 'Failed to compare scans.',
     });
   }
 };

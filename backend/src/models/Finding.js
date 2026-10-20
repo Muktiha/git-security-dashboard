@@ -65,6 +65,41 @@ const findingSchema = new mongoose.Schema(
       type: String,
       default: '',
     },
+
+    status: {
+      type: String,
+      enum: ['OPEN', 'IN_PROGRESS', 'RESOLVED', 'ACCEPTED_RISK'],
+      default: 'OPEN',
+      index: true,
+    },
+
+    remediationNote: {
+      type: String,
+      default: '',
+    },
+
+    statusHistory: [
+      {
+        status: {
+          type: String,
+          enum: ['OPEN', 'IN_PROGRESS', 'RESOLVED', 'ACCEPTED_RISK'],
+          required: true,
+        },
+        note: {
+          type: String,
+          default: '',
+        },
+        changedBy: {
+          type: mongoose.Schema.Types.ObjectId,
+          ref: 'User',
+          default: null,
+        },
+        changedAt: {
+          type: Date,
+          default: Date.now,
+        },
+      },
+    ],
   },
   {
     timestamps: true,

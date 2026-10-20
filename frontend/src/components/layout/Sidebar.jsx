@@ -3,16 +3,26 @@ import { NavLink, useNavigate } from 'react-router-dom';
 import { 
   LayoutDashboard, 
   GitBranch, 
+  ShieldCheck, 
   ShieldAlert, 
+  BarChart3, 
+  History, 
+  Bell, 
+  Settings, 
   LogIn, 
-  UserPlus,
+  UserPlus, 
   LogOut 
 } from 'lucide-react';
 
 const navItems = [
   { name: 'Dashboard', path: '/dashboard', icon: LayoutDashboard },
   { name: 'Repositories', path: '/repositories', icon: GitBranch },
+  { name: 'Security Scans', path: '/scans', icon: ShieldCheck },
   { name: 'Security Findings', path: '/findings', icon: ShieldAlert },
+  { name: 'Analytics', path: '/analytics', icon: BarChart3 },
+  { name: 'Scan History', path: '/scan-history', icon: History },
+  { name: 'Notifications', path: '/notifications', icon: Bell },
+  { name: 'Settings', path: '/settings', icon: Settings },
 ];
 
 export default function Sidebar() {
